@@ -169,7 +169,9 @@ section { padding: 84px 0; }
 .sec-head p { margin-top: 14px; }
 
 /* ---- 対戦相手 ---- */
-.chars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.chars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.char .face { width: 72px; height: 72px; border-radius: 50%; float: right; margin: -4px -4px 4px 8px; background: var(--cream); border: 2px solid var(--line); }
+.seat .fc { width: 14px; height: 14px; border-radius: 50%; }
 .char { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 20px; transition: box-shadow .2s, transform .2s; }
 .char:hover { box-shadow: 0 18px 44px -20px #2a211b2e; transform: translateY(-2px); }
 .char .cn { font-size: 12px; font-weight: 700; color: var(--brass-dark); letter-spacing: .1em; }

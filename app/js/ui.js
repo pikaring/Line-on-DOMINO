@@ -57,6 +57,35 @@
       halfHTML(x) + '<span class="bar"></span>' + halfHTML(y) + '</span>';
   }
 
+  /* --- 顔とひとこと -------------------------------------------------- */
+  function charOfSeat(p) { return p && p.character != null ? DM.ai.CHARACTERS[p.character] : null; }
+
+  function faceHTML(ch, kind, cls) {
+    var f = ch && DM.FACES && DM.FACES[ch.id];
+    return f ? '<img class="face ' + (cls || '') + '" src="' + f[kind || 'normal'] + '" alt="">' : '';
+  }
+
+  function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+
+  /**
+   * 吹き出し付きの顔。who が勝った CPU ならその勝ちゼリフ、
+   * あなたが勝ったときは、負けた CPU のうち 1 人の負けゼリフを出す。
+   */
+  function speechHTML(winnerSeat, key) {
+    var p = winnerSeat != null ? game.players[winnerSeat] : null;
+    var ch = charOfSeat(p), kind = 'win', line;
+    if (ch) {
+      line = pick(ch.talk[key]);
+    } else {
+      var losers = game.players.filter(function (q) { return q.seat !== winnerSeat && charOfSeat(q); });
+      if (!losers.length) return '';
+      p = pick(losers); ch = charOfSeat(p); kind = 'lose';
+      line = pick(ch.talk.lose);
+    }
+    return '<div class="speech' + (kind === 'lose' ? ' lose' : '') + '">' + faceHTML(ch, kind, 'big') +
+      '<div class="bubble"><b>' + esc(ch.name) + '</b>' + esc(line) + '</div></div>';
+  }
+
   function backHTML(extra) {
     return '<span class="dom v back ' + (extra || '') + '"></span>';
   }
@@ -150,8 +179,8 @@
   }
 
   function headHTML(p) {
-    var ch = p.character != null ? DM.ai.CHARACTERS[p.character] : null;
-    return '<div class="seat-head">' +
+    var ch = charOfSeat(p);
+    return '<div class="seat-head">' + faceHTML(ch, 'normal') +
       (p.seatLabel ? '<span class="seat-label">' + p.seatLabel + '</span>' : '') +
       '<span class="nm">' + esc(p.name) + '</span>' +
       (ch ? '<span class="tag">' + ch.tag + '</span>' : '') +
@@ -280,7 +309,7 @@
     return '<div class="rest-list">' + game.players.map(function (p, i) {
       var win = info.winner === i;
       var tiles = info.hands[i].map(function (t) { return domHTML(t.b, t.a, 'h', 'mini'); }).join('');
-      return '<div class="' + (win ? 'win' : '') + '">' + esc(p.name) + '</div>' +
+      return '<div class="who' + (win ? ' win' : '') + '">' + faceHTML(charOfSeat(p), win ? 'win' : 'lose') + esc(p.name) + '</div>' +
         '<div class="tiles">' + (tiles || '<span style="opacity:.6">なし</span>') + '</div>' +
         '<div class="pp">' + info.pips[i] + '目</div>';
     }).join('') + '</div>';
@@ -299,6 +328,7 @@
     $('#sheet').innerHTML =
       '<h2>' + title + '</h2>' +
       '<div class="sub">第' + game.handNo + '局の結果（' + game.target + '点先取）</div>' +
+      (info.winner != null ? speechHTML(info.winner, info.type === 'domino' ? 'domino' : 'blocked') : '') +
       restListHTML(info) +
       (info.winner != null ? '<div class="score">' + esc(game.players[info.winner].name) + ' +' + info.gain + '点</div>' : '') +
       '<div class="detail">' + info.detail.map(esc).join('<br>') + '</div>' +
@@ -313,6 +343,7 @@
     $('#sheet').innerHTML =
       '<h2>' + (data.standings[0].seat === 0 ? 'あなたの勝ち！' : '対戦終了') + '</h2>' +
       '<div class="sub">' + game.target + '点に到達（全' + data.hands + '局）</div>' +
+      speechHTML(data.standings[0].seat, 'game') +
       '<div class="standings">' + data.standings.map(function (s, i) {
         if (s.score !== prev) { rank = i + 1; prev = s.score; }
         return '<div class="' + (s.seat === 0 ? 'me' : '') + '">' +
@@ -450,8 +481,8 @@
     var el = $('#char-list');
     if (!el) return;
     el.innerHTML = DM.ai.CHARACTERS.map(function (c) {
-      return '<div class="char"><div class="char-top"><b>' + esc(c.name) + '</b><span class="tag">' + c.tag +
-        '</span></div><div class="char-desc">' + esc(c.desc) + '</div></div>';
+      return '<div class="char">' + faceHTML(c, 'normal', 'mid') + '<div><div class="char-top"><b>' + esc(c.name) +
+        '</b><span class="tag">' + c.tag + '</span></div><div class="char-desc">' + esc(c.desc) + '</div></div></div>';
     }).join('');
   }
 

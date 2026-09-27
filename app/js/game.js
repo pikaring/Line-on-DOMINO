@@ -76,7 +76,7 @@
     this.startHand();
   };
 
-  /** CPU の打ち筋を 5 人から 3 人、重複なく抽選する */
+  /** CPU の打ち筋（登場人物）を 6 人から 3 人、重複なく抽選する */
   Game.prototype.assignCharacters = function () {
     var pool = DM.ai.CHARACTERS.map(function (_, i) { return i; });
     DM.shuffle(pool, this.rng);

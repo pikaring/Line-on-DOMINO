@@ -386,8 +386,33 @@ html, body {
 .standings { font-size: 14px; line-height: 1.9; font-variant-numeric: tabular-nums; }
 .standings .me { color: var(--accent); font-weight: 700; }
 
+/* 顔アイコン（席は小、結果の吹き出しは大） */
+.face {
+  width: 22px; height: 22px; flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 240, 220, .3);
+}
+.face.mid { width: 44px; height: 44px; }
+.face.big { width: 76px; height: 76px; border: 2px solid var(--accent); }
+.speech { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }
+.speech .bubble {
+  position: relative;
+  background: var(--bone); color: var(--ink);
+  border-radius: 12px; padding: 8px 11px;
+  font-size: 13px; line-height: 1.55;
+}
+.speech .bubble::before {
+  content: ''; position: absolute; left: -7px; top: 50%; margin-top: -7px;
+  border: 7px solid transparent; border-left: 0; border-right-color: var(--bone);
+}
+.speech .bubble b { display: block; font-size: 11px; color: #8c5d17; }
+.speech.lose .face.big { border-color: rgba(255, 240, 220, .35); }
+.rest-list .who { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+
 /* ルール画面のキャラクター一覧 */
-.char { margin: 9px 0; }
+.char { margin: 9px 0; display: flex; gap: 9px; align-items: center; }
 .char-top { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 .char-top .tag { background: rgba(255, 255, 255, .18); border-radius: 3px; padding: 0 5px; font-size: 11px; }
 .char-desc { font-size: 12px; opacity: .85; line-height: 1.6; }

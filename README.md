@@ -6,9 +6,11 @@
 
 - 紹介ページ: <https://pikaring.github.io/line-on-domino/>
 - ゲーム本体: <https://pikaring.github.io/line-on-domino/app/>
-- 1 ファイル版: [`app/standalone.html`](app/standalone.html)（約 70 KB。これ 1 つで配布できます）
+- 1 ファイル版: [`app/standalone.html`](app/standalone.html)（約 210 KB。顔アイコンも埋め込み済みで、これ 1 つで配布できます）
 
-打ち筋の違う 5 人の CPU（対戦ごとに 3 人が卓に着く）と 3 段階の強さ。
+対戦相手は猫街三部作（猫街ろまん／猫が消えた街／街と、その白い壁）の 6 人。
+ナオ・フミ・マキ・チカ・タコ大王・イカ女王から対戦ごとに 3 人が卓に着き、ひとりずつ打ち筋が違います。
+勝ったときは顔アイコンとひとことで喜び、あなたが勝つと誰かがくやしがります。強さは 3 段階。
 得点方式はブロックとオールファイブの 2 つ。
 **CPU は他の人の手牌を一切見ていません**（`tests/audit.js` で検証）。
 
@@ -18,11 +20,12 @@
 
 **Line on DOMINO** is a four-player double-six dominoes game that runs entirely in the browser.
 No install, no sign-up, no network traffic, no dependencies. Open `app/index.html` and play,
-or grab the single-file build `app/standalone.html` (~70 KB) and play offline.
+or grab the single-file build `app/standalone.html` (~210 KB) and play offline.
 
 - Play now: <https://pikaring.github.io/line-on-domino/app/>
-- Five CPU opponents with distinct styles (weights on seven features such as dumping heavy tiles,
-  blocking the next player, keeping options, and controlling a suit); three are seated each game. Three difficulty levels.
+- Six CPU opponents from the author's Neko-Machi trilogy, each with a distinct style (weights on seven features such as
+  dumping heavy tiles, shedding doubles, blocking the next player, keeping options, and controlling a suit);
+  three are seated each game, and the winner gets a face icon and a one-liner. Three difficulty levels.
 - Two scoring modes: Block (winner takes the pips left in the other hands, to 100) and All Fives
   (score the ends whenever they add up to a multiple of five, to 200).
 - **The AI never peeks.** It only sees its own hand plus public information (the line, hand sizes, and who passed on which ends).
@@ -36,6 +39,7 @@ line-on-domino/
 ├── assets/           紹介ページ用（site.css・アイコン・OGP 画像）
 ├── make_icon.py      アイコンの生成スクリプト
 ├── make_og.py        OGP 画像の生成スクリプト
+├── tools/make_faces.py  顔アイコンの生成スクリプト（white-squid の立ち絵から切り抜く）
 └── app/              ゲーム本体（ここが実体）
     ├── index.html        これを開く
     ├── standalone.html   1 ファイル版（build.js が生成）
@@ -43,6 +47,7 @@ line-on-domino/
     ├── css/style.css
     ├── js/
     │   ├── tiles.js      牌の定義・乱数・並べ替え
+    │   ├── faces.js      登場人物の顔アイコン（tools/make_faces.py が生成）
     │   ├── ai.js         CPU の思考ルーチン（相手の手の配り直しと評価）
     │   ├── game.js       局進行と得点のステートマシン
     │   ├── coach.js      ヒント（おすすめの手と理由）
@@ -163,31 +168,36 @@ iPhone Air（CSS ピクセルで 420 × 912）を基準にした固定レイア�
 
 ### 対戦相手（キャラクター）
 
-対戦ごとに、5 人の打ち筋から 3 人が重複なくランダムで選ばれます。
+対戦ごとに、猫街三部作の 6 人から 3 人が重複なくランダムで選ばれます。
 
 | | 重さ | ダブル | 温存 | 支配 | 封鎖 | 得点 | 献上 | 考え方 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ①定石 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | どの項目にも寄らない基準の打ち手 |
-| ②象 | 5.0 | 2.5 | 0.4 | 0.3 | 0.4 | 0.8 | 0.5 | 重い牌とダブルから先に処理する |
-| ③蛇 | 0.6 | 0.8 | 0.6 | 0.8 | 6.0 | 0.8 | 2.0 | 相手がパスした目を端に残して詰ませる |
-| ④猫 | 0.5 | 0.6 | 5.0 | 0.4 | 0.5 | 0.8 | 0.8 | 自分がパスしないことを最優先にする |
-| ⑤鷹 | 0.6 | 0.8 | 0.6 | 4.0 | 0.8 | 3.0 | 0.3 | 自分が多く持つ目で場を支配し、点を取りにいく |
+| ①ナオ（均） | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 小柄な黒髪メガネ。どの項目にも寄らない基準の打ち手 |
+| ②フミ（攻） | 0.6 | 0.8 | 0.6 | 4.0 | 0.8 | 1.5 | 0.6 | 大柄な茶髪のギャル。自分が多く持つ目で場を押さえ、ごり押しで出し切る |
+| ③マキ（点） | 1.2 | 2.0 | 0.8 | 0.8 | 0.8 | 5.0 | 0.2 | ソフト部のエース。オールファイブで 5 の倍数を狙い打つ |
+| ④チカ（柔） | 0.5 | 0.6 | 5.0 | 0.4 | 0.5 | 0.8 | 0.8 | 魚屋の娘。自分がパスしないことを最優先にする |
+| ⑤タコ大王（重） | 3.5 | 1.2 | 0.8 | 0.3 | 0.4 | 0.8 | 0.5 | 8 本の足で、重い牌から先に運び出す |
+| ⑥イカ女王（封） | 0.6 | 0.8 | 0.6 | 0.8 | 6.0 | 0.8 | 2.0 | 相手がパスした目を端に残し、白い壁のように道をふさぐ |
 
-各キャラを定石 3 人と戦わせた実測値です（ブロック・つよい）。太字が、そのキャラの看板にあたる数字。
+勝ったとき（ドミノ／ブロック／対戦の優勝）と負けたときのひとことは、`js/ai.js` の `talk` にあります。
 
-| | 局の勝率 | ドミノ率 | 序盤の牌の目 | 自分のパス率 | 下家のパス率 | 負け時の残り目 | 1局あたり得点 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 定石 | 23.8% | 19.8% | 6.7 | 17.4% | 17.5% | 8.9 | 6.2 |
-| 象 | 16.8% | 12.9% | **7.1** | 19.7% | 15.8% | **8.6** | 4.2 |
-| 蛇 | 22.3% | 15.3% | 6.4 | 20.1% | **21.0%** | 10.2 | 6.7 |
-| 猫 | 24.9% | **22.0%** | 6.5 | **16.1%** | 16.7% | 8.8 | 6.5 |
-| 鷹 | 24.8% | 19.5% | 6.3 | 17.6% | 18.5% | 9.3 | **7.1** |
+各キャラをナオ 3 人と戦わせた実測値です（難易度つよい）。太字が、そのキャラの看板にあたる数字。
 
-各 1000 局。「序盤の牌の目」は各局の最初の 3 手で出した牌の目の平均（最初の 6-6 は除く）、
+| | 局の勝率 | ドミノ率 | 序盤の牌の目 | 自分のパス率 | 下家のパス率 | 負け時の残り目 | 1局あたり得点 | オールファイブの場の得点/局 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ナオ | 23.8% | 19.8% | 6.7 | 17.4% | 17.5% | 8.9 | 6.2 | 10.9 |
+| フミ | **26.8%** | 21.6% | 6.4 | 17.2% | 18.6% | 8.9 | **7.6** | 11.1 |
+| マキ | 24.0% | 19.0% | 6.8 | 18.6% | 17.8% | 9.1 | 6.5 | **12.9** |
+| チカ | 24.9% | **22.0%** | 6.5 | **16.1%** | 16.7% | 8.8 | 6.5 | 11.2 |
+| タコ大王 | 16.6% | 13.2% | **7.2** | 19.3% | 14.9% | **8.4** | 3.9 | 8.9 |
+| イカ女王 | 23.9% | 16.7% | 6.5 | 19.1% | **19.6%** | 9.7 | 7.1 | 9.8 |
+
+ブロックで各 1000 局、最後の列だけオールファイブで各 800 局。
+「序盤の牌の目」は各局の最初の 3 手で出した牌の目の平均（最初の 6-6 は除く）、
 「1局あたり得点」はその席が得た点を局数で割ったもの。
-象は最も重い牌から出して負けたときの失点が最も少なく、蛇は下家を最もパスさせ、
-猫は最もパスせずに最も多く出し切り、鷹は最も点を稼ぐ、という形で看板どおりに分かれています。
-象は失点を抑える代わりに勝率が下がる、打ち筋の「癖」がそのまま弱点にもなるキャラです。
+フミは場を押さえて最も勝ち最も稼ぎ、マキはオールファイブで最も場の点を取り、チカは最もパスせずに最も多く出し切り、
+タコ大王は最も重い牌から出して負けたときの失点が最も少なく、イカ女王は下家を最もパスさせる、という形で看板どおりに分かれています。
+タコ大王は失点を抑える代わりに勝率が下がる、打ち筋の「癖」がそのまま弱点にもなるキャラです。
 
 `node tests/characters.js [局数] [block|fives]` で再測定できます。
 
@@ -211,7 +221,7 @@ iPhone Air（CSS ピクセルで 420 × 912）を基準にした固定レイア�
 
 ## ヒント
 
-「ヒント」を ON にすると、自分の番に、定石の重み・つよいの読みで評価した一番の手を
+「ヒント」を ON にすると、自分の番に、ナオ（基準）の重み・つよいの読みで評価した一番の手を
 「おすすめ」として手牌に金枠で示し、理由を最大 3 つ表示します
 （次に出せなくなる相手とその確率、重い牌やダブルの処理、出したあと自分がつなげる枚数、取れる点など）。
 ヒントも CPU と同じく、自分の手牌と公開情報しか使っていません。
@@ -232,3 +242,4 @@ node tests/audit.js      # 覗き見していないことの検証
 ## ライセンス
 
 MIT License。依存ライブラリ・外部の画像素材は使っていません（アイコンは `make_icon.py`、OGP 画像は `make_og.py` で生成）。
+登場人物の顔は、同じ作者の「[街と、その白い壁](https://github.com/pikaring/white-squid)」の立ち絵を `tools/make_faces.py` で切り抜いたものです。
