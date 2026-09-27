@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Line on DOMINO － ドミノ</title>
+<meta name="description" content="ブラウザだけで遊べる軽量な4人ドミノ。打ち筋の違う5人のCPU。インストール不要・オフライン動作。">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%233a2a1e'/><rect x='9' y='3' width='14' height='26' rx='3' fill='%23fbf6ea'/><rect x='11' y='15.5' width='10' height='1' fill='%23cfc3a8'/><circle cx='16' cy='9' r='2' fill='%23c0392b'/><circle cx='13' cy='20' r='1.6' fill='%231f5fae'/><circle cx='19' cy='25' r='1.6' fill='%231f5fae'/></svg>">
+<link rel="canonical" href="https://pikaring.github.io/line-on-domino/app/">
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <span class="title" data-act="title">ドミノ</span>
+    <button class="btn" data-act="difficulty">敵:ふつう</button>
+    <button class="btn" data-act="hint">ヒント</button>
+    <button class="btn" data-act="speed">速度:普</button>
+    <button class="btn" data-act="mode">ブロック</button>
+    <button class="btn" data-act="new-game">新規</button>
+    <button class="btn" data-act="rules">ルール</button>
+  </div>
+
+  <div class="infobar" id="infobar"></div>
+  <div class="board" id="board"></div>
+  <div class="line-box" id="line"></div>
+  <div class="coach" id="coach" hidden></div>
+  <div class="log" id="log"></div>
+  <div id="self"></div>
+  <div class="actions" id="actions"></div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="overlay" id="rules-overlay" hidden>
+  <div class="sheet">
+    <h2>ルール</h2>
+    <div class="detail">
+      <b>基本</b><br>
+      ・0〜6 の目のドミノ 28 枚を、4 人に 7 枚ずつ配ります（山は残りません）。<br>
+      ・最初の局は <b>6-6 を持っている人が 6-6 から</b>始めます。2 局目からは前の局の勝者が、好きな牌で始めます。<br>
+      ・手番では、場の<b>左端か右端に、同じ目でつなぎます</b>。<br>
+      ・出せる牌があれば必ず出します。出せなければパス。<br>
+      ・手牌を出し切った人が勝者（<b>ドミノ</b>）です。<br>
+      ・4 人続けてパスしたら行き詰まり（<b>ブロック</b>）。残った目の合計が一番少ない人が勝者です。最少が同点なら、その局は誰も得点しません。
+      <div class="divider"></div>
+      <b>得点方式（上の「ブロック／オール5」で切り替え）</b><br>
+      ・<b>ブロック</b>：勝者が、他の 3 人の残り目の合計を得点します。100 点先取。<br>
+      ・<b>オールファイブ</b>：上の得点に加えて、つないだ直後の<b>両端の目の合計が 5 の倍数なら、その数が得点</b>になります。端の牌がダブルなら、その端は両方の目を数えます（例：左端が 5-5 で右端が 5 なら 15 点）。局の終わりの得点は 5 点単位に丸めます。200 点先取。<br>
+      ・誰かが目標点に届いたら、その局の精算で対戦終了。一番点の高い人が勝ちです。
+      <div class="divider"></div>
+      <b>対戦相手</b><br>
+      5 人の打ち筋から 3 人が毎回ランダムで選ばれます。
+      <div id="char-list"></div>
+      <div class="divider"></div>
+      <b>操作</b><br>
+      ・自分の番は、手牌をタップして場につなぎます。出せない牌は暗くなります。<br>
+      ・左右どちらにもつなげる牌は、タップしたあと「左端へ／右端へ」を選びます。<br>
+      ・場の金枠が両端です。「左」「右」の札が付いた牌の外側の目につなぎます。<br>
+      ・「ヒント」を ON にすると、おすすめの手と理由、各 CPU が<b>持っていないと分かっている目</b>（パスした時点の両端の目）、目ごとの見えていない牌の数を表示します。<br>
+      ・「敵」で CPU の腕前を やさしい／ふつう／つよい から選べます。打ち筋（上のキャラクター）が「どう打ちたいか」、腕前が「それをどれだけ正確に実行できるか」です。<br>CPU は自分の手牌と、場・各席の枚数・パスの記録しか見ていません（他の人の手牌は見ません）。
+    </div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn primary" data-act="close-rules">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/tiles.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/game.js"></script>
+<script src="js/coach.js"></script>
+<script src="js/ui.js"></script>
+<script>
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'rules') document.getElementById('rules-overlay').hidden = false;
+    if (act === 'close-rules') document.getElementById('rules-overlay').hidden = true;
+  });
+  DM.ui.init();
+</script>
+</body>
+</html>

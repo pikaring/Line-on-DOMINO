@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Line on DOMINO｜ブラウザだけで遊べる4人ドミノ</title>
+<meta name="description" content="インストール不要・通信なし・1ファイルで動く4人ドミノ。打ち筋の違う5人のCPUと3段階の強さ。パスから相手の手を読む、ブロックとオールファイブの2方式。iPhoneの1画面に収まる盤面。">
+<link rel="canonical" href="https://pikaring.github.io/line-on-domino/">
+<meta property="og:title" content="Line on DOMINO">
+<meta property="og:description" content="パスは、嘘をつかない。登録もダウンロードも要らない4人ドミノ。通信なし・1ファイル・CPUは覗き見しない。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://pikaring.github.io/line-on-domino/">
+<meta property="og:image" content="https://pikaring.github.io/line-on-domino/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Line on DOMINO">
+<meta name="twitter:description" content="パスは、嘘をつかない。登録もダウンロードも要らない4人ドミノ。通信なし・1ファイル・CPUは覗き見しない。">
+<meta name="twitter:image" content="https://pikaring.github.io/line-on-domino/assets/og.png">
+<link rel="icon" href="assets/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;750&family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Serif+JP:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3FCFQY4W85"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-3FCFQY4W85');
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Line on DOMINO",
+  "url": "https://pikaring.github.io/line-on-domino/",
+  "description": "インストール不要・通信なし・1ファイルで動く4人ドミノ。打ち筋の違う5人のCPUと3段階の強さ。パスから相手の手を読む、ブロックとオールファイブの2方式。iPhoneの1画面に収まる盤面。",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "すべて（ウェブブラウザ）",
+  "inLanguage": "ja",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "JPY"
+  },
+  "license": "https://opensource.org/licenses/MIT",
+  "author": {
+    "@type": "Person",
+    "name": "pikaring",
+    "url": "https://pikaring.github.io/"
+  },
+  "browserRequirements": "JavaScript が 動く ブラウザ",
+  "screenshot": "https://pikaring.github.io/line-on-domino/assets/og.png"
+}
+</script>
+</head>
+<body>
+
+<header class="header">
+  <div class="wrap header-inner">
+    <a class="brand" href="#top"><img src="assets/icon.png" alt=""> Line on DOMINO</a>
+    <nav class="nav">
+      <a href="#cpu">相手</a>
+      <a href="#rules">ルール</a>
+      <a href="#how">遊び方</a>
+      <a href="#faq">よくある質問</a>
+      <a class="btn btn-main" href="app/">いますぐ遊ぶ</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="pill"><b>無料</b> · インストール不要 · 通信なし · MIT License</span>
+        <h1>パスは、<br>嘘をつかない。</h1>
+        <p class="lead">ドミノは、つなぐゲームで、読むゲームです。誰かがパスしたら、その人は両端の目を持っていない。それを覚えて、その目を端に残す。5人のCPUも、同じ情報だけで打ってきます。</p>
+        <div class="hero-actions">
+          <a class="btn btn-main" href="app/">いますぐ遊ぶ</a>
+          <a class="btn btn-sub" href="https://github.com/pikaring/line-on-domino">GitHubで見る</a>
+        </div>
+        <p class="hero-note">CPUは他の人の手牌を見ていません。テストで確かめてあります。</p>
+      </div>
+
+      <!-- 実物の盤面（app/css/style.css）の配色・段構成に合わせたモック -->
+      <div class="phone" aria-hidden="true">
+        <div class="board">
+          <div class="tb"><span class="tt">ドミノ</span><span>敵:ふつう</span><span class="on">ヒント</span><span>速度:普</span><span>ブロック</span><span>新規</span></div>
+          <div class="ib"><span>第2局</span><span><b>100</b>点先取</span><span class="en">左<i>2</i>右<i>3</i></span></div>
+          <div class="seat"><span>下家</span><b>蛇</b><span class="tg">封</span><span class="pt">19</span><span class="ps">パス</span><span class="vd">なし 2・3</span><span class="bk"><i></i><i></i><i></i><i></i></span></div>
+          <div class="seat"><span>対面</span><b>象</b><span class="tg">重</span><span class="pt">0</span><span class="bk"><i></i><i></i><i></i></span></div>
+          <div class="seat"><span>上家</span><b>猫</b><span class="tg">柔</span><span class="pt">27</span><span class="bk"><i></i><i></i><i></i><i></i></span></div>
+          <div class="line">
+<span class="d h end" style="--u:16px;left:8px;top:22px"><i class="n2"><em></em><em></em><b></b><em></em><em></em><em></em><b></b><em></em><em></em></i><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i></span>
+<span class="d v" style="--u:16px;left:43px;top:14px"><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i></span>
+<span class="d h" style="--u:16px;left:62px;top:22px"><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i><i class="n4"><b></b><em></em><b></b><em></em><em></em><em></em><b></b><em></em><b></b></i></span>
+<span class="d v" style="--u:16px;left:97px;top:14px"><i class="n4"><b></b><em></em><b></b><em></em><em></em><em></em><b></b><em></em><b></b></i><i class="n4"><b></b><em></em><b></b><em></em><em></em><em></em><b></b><em></em><b></b></i></span>
+<span class="d h" style="--u:16px;left:116px;top:22px"><i class="n4"><b></b><em></em><b></b><em></em><em></em><em></em><b></b><em></em><b></b></i><i class="n1"><em></em><em></em><em></em><em></em><b></b><em></em><em></em><em></em><em></em></i></span>
+<span class="d h" style="--u:16px;left:151px;top:22px"><i class="n1"><em></em><em></em><em></em><em></em><b></b><em></em><em></em><em></em><em></em></i><i class="n5"><b></b><em></em><b></b><em></em><b></b><em></em><b></b><em></em><b></b></i></span>
+<span class="d v" style="--u:16px;left:186px;top:14px"><i class="n5"><b></b><em></em><b></b><em></em><b></b><em></em><b></b><em></em><b></b></i><i class="n5"><b></b><em></em><b></b><em></em><b></b><em></em><b></b><em></em><b></b></i></span>
+<span class="d h" style="--u:16px;left:205px;top:22px"><i class="n5"><b></b><em></em><b></b><em></em><b></b><em></em><b></b><em></em><b></b></i><i class="n3"><em></em><em></em><b></b><em></em><b></b><em></em><b></b><em></em><em></em></i></span>
+<span class="d h" style="--u:16px;left:240px;top:22px"><i class="n3"><em></em><em></em><b></b><em></em><b></b><em></em><b></b><em></em><em></em></i><i class="n0"><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em></i></span>
+<span class="d v" style="--u:16px;left:256px;top:54px"><i class="n0"><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em></i><i class="n0"><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em></i></span>
+<span class="d h" style="--u:16px;left:221px;top:62px"><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i><i class="n0"><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em></i></span>
+<span class="d h end" style="--u:16px;left:186px;top:62px"><i class="n3"><em></em><em></em><b></b><em></em><b></b><em></em><b></b><em></em><em></em></i><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i></span>
+          </div>
+          <div class="coach"><b>おすすめ</b> 5-2 を左端へ<br>・下家（蛇）は次に出せない見込み 92%。前に 2・3 でパスしています。</div>
+          <div class="hand"><span class="d v dim"><i class="n6"><b></b><em></em><b></b><b></b><em></em><b></b><b></b><em></em><b></b></i><i class="n5"><b></b><em></em><b></b><em></em><b></b><em></em><b></b><em></em><b></b></i></span><span class="d v rec"><i class="n5"><b></b><em></em><b></b><em></em><b></b><em></em><b></b><em></em><b></b></i><i class="n2"><em></em><em></em><b></b><em></em><em></em><em></em><b></b><em></em><em></em></i></span><span class="d v"><i class="n3"><em></em><em></em><b></b><em></em><b></b><em></em><b></b><em></em><em></em></i><i class="n3"><em></em><em></em><b></b><em></em><b></b><em></em><b></b><em></em><em></em></i></span><span class="d v dim"><i class="n4"><b></b><em></em><b></b><em></em><em></em><em></em><b></b><em></em><b></b></i><i class="n0"><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em></i></span><span class="d v dim"><i class="n1"><em></em><em></em><em></em><em></em><b></b><em></em><em></em><em></em><em></em></i><i class="n1"><em></em><em></em><em></em><em></em><b></b><em></em><em></em><em></em><em></em></i></span></div>
+          <div class="acts"><span class="hint">牌を押して場につなぐ</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="specs">
+    <div class="wrap specs-grid">
+      <div class="spec"><b>通信なし・1ファイル</b><span>約70KBのHTML。圏外でも動く</span></div>
+      <div class="spec"><b>5人の打ち筋 × 3段階</b><span>毎回3人がランダムで卓に着く</span></div>
+      <div class="spec"><b>2つの得点方式</b><span>ブロックとオールファイブ</span></div>
+      <div class="spec"><b>iPhoneで1画面</b><span>28枚並んでも場が1枠に収まる</span></div>
+    </div>
+  </div>
+
+  <section id="cpu">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">01 — OPPONENTS</p>
+        <h2>打ち筋の違う5人が、<br>覗き見せずに読んでくる。</h2>
+        <p>重い牌を先に捨てる、相手を詰ませる、自分がパスしない、場を支配する。
+          7つの評価項目の重みが違う5人から、対戦ごとに3人が選ばれます。
+          CPUが見ているのは自分の手牌と、場の並び・各席の枚数・パスの記録だけ。
+          他の人の手牌にアクセスしたら記録するテストで、0件を確認しています。</p>
+      </div>
+
+      <div class="chars">
+        <div class="char"><div class="cn">①</div><h3>定石</h3><p>基準の打ち手。どの項目にも寄らず、素直に判断する。</p><div class="stat"><span>勝率 23.8%</span><span>パス 17.4%</span></div></div>
+        <div class="char"><div class="cn">②</div><h3>象</h3><p>重い牌とダブルから先に処理。負けても失点が最も少ない。</p><div class="stat"><span class="hot">序盤の目 7.1</span><span class="cool">失点 8.6目</span></div></div>
+        <div class="char"><div class="cn">③</div><h3>蛇</h3><p>相手がパスした目を端に残して詰ませる。下家を最もパスさせる。</p><div class="stat"><span class="hot">下家のパス 21.0%</span><span>勝率 22.3%</span></div></div>
+        <div class="char"><div class="cn">④</div><h3>猫</h3><p>自分がパスしないことを最優先。最もパスせず、最も出し切る。</p><div class="stat"><span class="cool">パス 16.1%</span><span class="hot">ドミノ 22.0%</span></div></div>
+        <div class="char"><div class="cn">⑤</div><h3>鷹</h3><p>自分が多く持つ目で場を支配する。最も点を稼ぐ。</p><div class="stat"><span class="hot">1局 7.1点</span><span>勝率 24.8%</span></div></div>
+      </div>
+      <p class="note">数字は各キャラを定石3人と1000局ずつ戦わせた実測値（ブロック・つよい）。<code>node tests/characters.js</code> で再測定できます。</p>
+
+      <div class="levels">
+        <div class="lv"><b>やさしい</b><span>パスの記録を読まない。45%は次善手</span></div>
+        <div class="lv"><b>ふつう</b><span>パスを読む。20%は次善手</span></div>
+        <div class="lv"><b>つよい</b><span>パスを読み、相手の手を300通り配り直して見積もる</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt" id="rules">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">02 — RULES</p>
+        <h2>いちばん素朴なドミノに、<br>得点の遊びをひとつ。</h2>
+        <p>ダブルシックス28枚を4人で分ける、山のないドミノです。細かい採用は画面の「ルール」ボタンからいつでも見られます。</p>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <p class="num">基本</p>
+          <h3>28枚を4人に7枚ずつ</h3>
+          <ul>
+            <li>最初の局は6-6を持つ人が6-6から。2局目からは前の局の勝者から</li>
+            <li>場の左端か右端に、同じ目でつなぐ。出せる牌があれば必ず出す</li>
+            <li>出せなければパス。その目を持っていないことが全員に伝わる</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="num">決着</p>
+          <h3>ドミノか、ブロックか</h3>
+          <ul>
+            <li>手牌を出し切った人が勝者（ドミノ）</li>
+            <li>4人続けてパスしたら行き詰まり（ブロック）。残り目の一番少ない人が勝者</li>
+            <li>最少が同点なら、その局は誰も得点しない</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="num">得点 1</p>
+          <h3>ブロック（100点先取）</h3>
+          <ul>
+            <li>勝者が、他の3人の残り目の合計を得点する</li>
+            <li>重い牌を抱えて負けるほど、相手の点が増える</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="num">得点 2</p>
+          <h3>オールファイブ（200点先取）</h3>
+          <ul>
+            <li>つないだ直後の両端の合計が5の倍数なら、その数が得点</li>
+            <li>端のダブルは両方の目を数える（5-5が端なら10）</li>
+            <li>局の精算は5点単位に丸める</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="night" id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">03 — HOW TO PLAY</p>
+        <h2>選んで、つなぐだけ。</h2>
+        <p>自分の番になったら手牌をタップ。出せない牌は暗くなります。
+          迷ったら「ヒント」で、おすすめの手とその理由が見られます。</p>
+      </div>
+
+      <div class="night-grid">
+        <div class="night-list">
+          <div class="night-item">
+            <b>左右の選び方</b>
+            <span>両端のどちらにもつなげる牌は、タップしたあと「左端へ／右端へ」を選びます。
+              場の金枠と「左」「右」の札が両端です。</span>
+          </div>
+          <div class="night-item">
+            <b>ヒント</b>
+            <span>おすすめの手と理由のほか、各CPUが持っていないと分かっている目（パスした時点の両端）と、
+              目ごとの見えていない牌の数を表示します。CPUと同じ情報しか使っていません。</span>
+          </div>
+          <div class="night-item">
+            <b>速度と強さ</b>
+            <span>CPUの速度は遅／普／速／瞬の4段階。強さは対戦の途中でも変えられます。設定はブラウザに保存されます。</span>
+          </div>
+        </div>
+
+        <div class="steps-box">
+          <div class="flow-step"><em>1</em><span><a href="app/">app/</a> を開く。iPhoneならホーム画面に追加しておくと便利</span></div>
+          <div class="flow-step"><em>2</em><span>「ブロック／オール5」で得点方式、「敵」で強さを選ぶ</span></div>
+          <div class="flow-step"><em>3</em><span>手牌をタップして場につなぐ。出せなければ「パス」</span></div>
+          <div class="flow-step"><em>4</em><span>誰かが目標点（100点／200点）に届くまで</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">04 — FAQ</p>
+        <h2>よくある質問</h2>
+      </div>
+
+      <details>
+        <summary>通信はしますか？</summary>
+        <p>しません。読み込むのはHTML・CSS・JSだけで、対戦中に外部と通信する処理はありません。
+          <code>standalone.html</code> 1ファイルをダウンロードしておけば、圏外でも遊べます。</p>
+      </details>
+      <details>
+        <summary>CPUはこちらの手牌を見ていませんか？</summary>
+        <p>見ていません。CPUが参照するのは自分の手牌と、場の並び・各席の手牌の枚数・パスの記録だけです。
+          <code>node tests/audit.js</code> は、CPUの思考中とヒントの計算中に他の人の手牌へアクセスすると
+          記録する状態で対戦を回し、それが0件であることを確認します。</p>
+      </details>
+      <details>
+        <summary>CPUはどうやって読んでいるのですか？</summary>
+        <p>見えていない牌を、各席の枚数どおりに何百通りも配り直して、「この手を打ったら次の人が出せなくなる確率」や
+          「自分がまた出せる確率」を数えています。配り直すときに、パスで分かった「持っていない目」を条件に入れるかどうかが、
+          強さの差のひとつです。</p>
+      </details>
+      <details>
+        <summary>2人や3人でも遊べますか？</summary>
+        <p>いまは4人（自分とCPU3人）だけです。山がなく28枚をちょうど配り切るので、パスの情報がいちばん生きる形にしています。</p>
+      </details>
+      <details>
+        <summary>相手の手牌を見る方法はありますか？</summary>
+        <p>あります。タイトルの「ドミノ」を3秒以内に5回タップすると、相手の手牌が表向きになります。
+          変わるのは画面だけで、CPUの打ち方には影響しません。答え合わせにどうぞ。</p>
+      </details>
+      <details>
+        <summary>名前の由来は？</summary>
+        <p>場にのびる牌の列（line）から。アイコンも、6-6から右上へつながっていく列です。</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap">
+      <p class="eyebrow" style="justify-content:center">READY TO LINE</p>
+      <h2>6-6 から、はじめます。</h2>
+      <p style="margin-top:14px">インストールも登録も要りません。ブラウザで開いてすぐ遊べます。</p>
+      <div class="hero-actions">
+        <a class="btn btn-main" href="app/">いますぐ遊ぶ</a>
+        <a class="btn btn-sub" href="app/standalone.html" download="line-on-domino.html">1ファイル版をダウンロード</a>
+      </div>
+      <p class="hero-note">MIT License · 依存ライブラリなし</p>
+    </div>
+  </section>
+
+  <section class="family" id="family">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">MORE TOOLS</p>
+        <h2>同じ作者の、ほかのツール。</h2>
+        <p>ブラウザだけで動く道具とゲームを、ひとつのページにまとめています。</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-main" href="https://pikaring.github.io/">つくったもの一覧を見る</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <span>Line on DOMINO</span>
+    <a href="https://github.com/pikaring/line-on-domino">GitHub</a>
+    <a href="https://github.com/pikaring/line-on-domino/blob/main/LICENSE">MIT License</a>
+    <a href="https://github.com/pikaring/line-on-domino/blob/main/README.md">README</a>
+    <span class="counter">累計アクセス <b id="counter-value">―</b> 回</span>
+    <span class="sep">依存ライブラリなし・外部素材なし</span>
+  </div>
+</footer>
+
+
+<script>
+// アクセスカウンター（庁内Webと同じGAS。page名でサイトごとに別カウント）
+(function () {
+  var el = document.getElementById('counter-value');
+  if (!el) return;
+  var page = location.pathname.replace(/index\.html$/, '');
+  fetch('https://script.google.com/macros/s/AKfycbxkQLZXNAFXkT7zhIO0TmMDGU3A0TQ234Lf-yhw5J7lvFAjCi3KLNLRd_LKd_xlOxPd/exec?page=' + encodeURIComponent(page))
+    .then(function (r) { return r.json(); })
+    .then(function (d) { el.textContent = Number(d.count).toLocaleString('ja-JP'); })
+    .catch(function () { el.textContent = '―'; });
+})();
+</script>
+</body>
+</html>

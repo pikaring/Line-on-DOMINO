@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Line on DOMINO － ドミノ</title>
+<meta name="description" content="ブラウザだけで遊べる軽量な4人ドミノ。打ち筋の違う5人のCPU。インストール不要・オフライン動作。">
+<style>
+/*
+ * style.css
+ *
+ * iPhone Air（CSS ピクセルで 420 x 912）を基準にした固定レイアウト。
+ * 場の牌が増えても他の要素がずれないよう、各段の高さを内容ではなく
+ * 牌の寸法から決めている。場の並びは箱の大きさを固定し、その中で JS が牌の寸法を決める。
+ *
+ *   上から  操作ボタン / 局情報 / 他の 3 人（1 人 1 段）/ 場 / ヒント /
+ *           ログ（余白を吸収）/ 自分の手牌 / コマンド（最下段に固定）
+ */
+
+:root {
+  --table: #3a2a1e;
+  --table-dark: #2a1d14;
+  --panel: rgba(0, 0, 0, .26);
+  --line: rgba(255, 240, 220, .16);
+  --bone: #fbf6ea;
+  --bone-edge: #cfc3a8;
+  --bone-back: #7a1f24;
+  --ink: #26221e;
+  --accent: #f2c14e;
+  --danger: #e2564a;
+  --text: #f6efe6;
+  --font-ui: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, system-ui, sans-serif;
+  --font-display: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "Times New Roman", serif;
+
+  --app-w: min(100vw, 430px);
+  /* 手牌は縦置き。7 枚が 1 段に収まる幅 */
+  --hand-u: min(34px, calc((var(--app-w) - 80px) / 7));
+  /* 他の 3 人の伏せ牌 */
+  --opp-u: 11px;
+  /* 場の箱の高さ（中の牌の寸法は JS がこの箱に収まるように決める） */
+  --line-h: 176px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 0%, #4d3827, var(--table) 45%, var(--table-dark));
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+#app {
+  width: 100%;
+  max-width: 430px;
+  height: 100dvh;
+  margin: 0 auto;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto auto;
+  gap: 5px;
+  overflow: hidden;
+}
+
+/* ---- 上部の操作ボタン ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 5px 6px;
+}
+.topbar .title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: .06em;
+  margin-right: 1px;
+  cursor: default;
+  user-select: none;
+}
+.topbar .title.open-mode { color: var(--accent); }
+.topbar .title.open-mode::after { content: '◉'; font-size: 10px; margin-left: 3px; vertical-align: super; }
+.btn {
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background .12s;
+  white-space: nowrap;
+}
+.btn:hover { background: rgba(255, 255, 255, .22); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: #2b2205; border-color: transparent; font-weight: 700; }
+.btn.primary:hover { background: #f7d27a; }
+.btn.warn { background: var(--danger); border-color: transparent; font-weight: 700; }
+.btn.rec { box-shadow: 0 0 0 2px var(--accent); }
+.btn.on { border-color: var(--accent); color: var(--accent); }
+
+/* ---- 局情報 ---- */
+.infobar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 4px 8px;
+  font-size: 12px;
+  height: 30px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.infobar .round {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+.infobar .stat { font-variant-numeric: tabular-nums; opacity: .9; }
+.infobar .stat b { color: var(--accent); }
+.infobar .ends { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.infobar .end-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 4px;
+  background: var(--bone); color: var(--ink);
+  border-radius: 4px; font-weight: 700; font-family: var(--font-display);
+}
+.infobar .sum { opacity: .8; }
+.infobar .sum.hit { color: var(--accent); opacity: 1; font-weight: 700; }
+
+/* ---- 他の 3 人（上から 下家 → 対面 → 上家。手番の流れどおり、直前に打つ上家が自分のすぐ上） ---- */
+.board { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.seat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: calc(var(--opp-u) * 2 + 10px);
+  min-width: 0;
+  overflow: hidden;
+}
+.seat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.seat-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+.seat-head .nm { font-weight: 700; }
+.seat-head .pt { color: var(--accent); font-variant-numeric: tabular-nums; }
+.seat-head .seat-label { opacity: .6; }
+.seat-head .tag { background: rgba(255, 255, 255, .18); border-radius: 3px; padding: 0 4px; font-size: 10px; }
+.seat-head .lead { background: var(--accent); color: #2b2205; border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: 700; }
+.seat-head .pass-mark { color: var(--danger); font-weight: 700; }
+.seat-head .void { background: rgba(226, 86, 74, .22); border-radius: 999px; padding: 0 6px; font-size: 11px; }
+.seat .backs { margin-left: auto; display: flex; gap: 2px; align-items: center; flex: none; }
+
+/* ---- 場（牌の位置と寸法は JS が決める） ---- */
+.line-box {
+  position: relative;
+  height: var(--line-h);
+  background: rgba(0, 0, 0, .18);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+.line-box .empty {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; opacity: .6;
+}
+.line-box .dom { position: absolute; }
+.line-box .end-l::after, .line-box .end-r::after {
+  position: absolute;
+  top: -1px;
+  font-size: 9px;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #2b2205;
+  font-weight: 700;
+}
+.line-box .end-l::after { content: '左'; left: -1px; }
+.line-box .end-r::after { content: '右'; right: -1px; }
+.line-box .end-l, .line-box .end-r { outline: 2px solid var(--accent); outline-offset: 0; }
+.line-box .last { box-shadow: 0 0 0 3px rgba(242, 193, 78, .45), 0 2px 6px rgba(0, 0, 0, .4); }
+
+/* ---- ヒント ---- */
+.coach {
+  background: rgba(242, 193, 78, .1);
+  border: 1px solid rgba(242, 193, 78, .45);
+  border-radius: 9px;
+  padding: 5px 8px;
+  font-size: 12px;
+  line-height: 1.55;
+  height: 108px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.coach[hidden] { display: none; }
+.coach::-webkit-scrollbar { display: none; }
+.coach b { color: var(--accent); }
+.coach .reason { opacity: .9; }
+.coach .reason::before { content: '・'; }
+.coach .count { opacity: .75; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+/* ---- ログ（余った高さを吸収する） ---- */
+.log {
+  padding: 2px 8px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow-y: auto;
+  font-variant-numeric: tabular-nums;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  scrollbar-width: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.log::-webkit-scrollbar { display: none; }
+.log div { opacity: .8; flex: none; }
+.log div.hl { color: var(--accent); }
+
+/* ---- 自分 ---- */
+.self {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.self.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.self .seat-head { height: 17px; }
+.self-hand {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+  height: calc(var(--hand-u) * 2 + 10px);
+  padding-top: 8px;
+}
+.self-hand .dom { --u: var(--hand-u); cursor: default; }
+.self-hand .dom.playable { cursor: pointer; }
+.self-hand .dom.playable:hover { transform: translateY(-5px); box-shadow: 0 4px 10px rgba(0, 0, 0, .35); }
+.self-hand .dom.selected { transform: translateY(-7px); outline: 3px solid var(--accent); outline-offset: 1px; }
+.self-hand .dom.rec { box-shadow: 0 0 0 3px var(--accent); }
+.self-hand .dom.dim { opacity: .45; }
+
+/* ---- コマンド（最下段に固定） ---- */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  height: 44px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 4px 8px;
+}
+.actions::-webkit-scrollbar { display: none; }
+.actions .btn { padding: 7px 12px; font-size: 13px; font-weight: 700; }
+.actions .hint { font-size: 11.5px; opacity: .8; line-height: 1.3; white-space: nowrap; }
+
+/* ---- 牌 ----
+ * 横置き（h）は 2u × u、縦置き（v）は u × 2u。u は --u で渡す。
+ * 目は 3×3 の格子に打つ。目ごとに色を変えて、小さい画面でも数えずに読めるようにしてある。 */
+.dom {
+  --u: 20px;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  background: linear-gradient(#fffdf6, var(--bone));
+  border: 1px solid var(--bone-edge);
+  border-bottom-width: 2px;
+  border-radius: calc(var(--u) * .16);
+  user-select: none;
+  transition: transform .12s;
+}
+.dom.h { width: calc(var(--u) * 2); height: var(--u); flex-direction: row; }
+.dom.v { width: var(--u); height: calc(var(--u) * 2); flex-direction: column; }
+.dom .half {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: calc(var(--u) * .12);
+}
+.dom .bar { background: var(--bone-edge); flex: none; }
+.dom.h .bar { width: 1px; margin: 12% 0; }
+.dom.v .bar { height: 1px; margin: 0 12%; }
+.dom .pip {
+  width: calc(var(--u) * .19);
+  height: calc(var(--u) * .19);
+  border-radius: 50%;
+  background: currentColor;
+  align-self: center;
+  justify-self: center;
+}
+.dom .n1 { color: #1c7c8c; }
+.dom .n2 { color: #2f7d32; }
+.dom .n3 { color: #c0392b; }
+.dom .n4 { color: #6d4c2f; }
+.dom .n5 { color: #1f5fae; }
+.dom .n6 { color: #7b3fa0; }
+.dom.back {
+  background: linear-gradient(150deg, #9c3a3f, var(--bone-back) 60%, #5a161a);
+  border-color: #4a1014;
+}
+.dom.back::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 30%; height: 30%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255, 220, 190, .35);
+}
+.dom.opp { --u: var(--opp-u); }
+.dom.mini { --u: 16px; }
+
+/* ---- 結果表示 ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  z-index: 20;
+}
+.overlay[hidden] { display: none; }
+.sheet {
+  background: #22180f;
+  border: 1px solid rgba(255, 240, 220, .22);
+  border-radius: 13px;
+  padding: 14px 16px;
+  width: min(430px, 100%);
+  max-height: 88dvh;
+  overflow-y: auto;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+}
+.sheet h2 {
+  font-family: var(--font-display);
+  margin: 0 0 6px;
+  font-size: 20px;
+  letter-spacing: .05em;
+  text-wrap: balance;
+}
+.sheet .sub { font-size: 12px; opacity: .85; margin-bottom: 8px; }
+.sheet .detail { font-size: 12.5px; line-height: 1.75; font-variant-numeric: tabular-nums; }
+.sheet .divider { height: 1px; background: rgba(255, 255, 255, .18); margin: 9px 0; }
+.sheet .score {
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--accent);
+  margin: 6px 0;
+  font-variant-numeric: tabular-nums;
+}
+.rest-list { display: grid; grid-template-columns: auto 1fr auto; gap: 5px 8px; align-items: center; font-size: 12.5px; }
+.rest-list .tiles { display: flex; flex-wrap: wrap; gap: 2px; }
+.rest-list .pp { text-align: right; font-variant-numeric: tabular-nums; opacity: .85; }
+.rest-list .win { color: var(--accent); font-weight: 700; }
+.standings { font-size: 14px; line-height: 1.9; font-variant-numeric: tabular-nums; }
+.standings .me { color: var(--accent); font-weight: 700; }
+
+/* ルール画面のキャラクター一覧 */
+.char { margin: 9px 0; }
+.char-top { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.char-top .tag { background: rgba(255, 255, 255, .18); border-radius: 3px; padding: 0 5px; font-size: 11px; }
+.char-desc { font-size: 12px; opacity: .85; line-height: 1.6; }
+
+/* 幅の狭い端末でも操作ボタンを 1 段に収める */
+@media (max-width: 405px) {
+  .topbar { gap: 3px; padding: 4px 5px; }
+  .topbar .btn { font-size: 11px; padding: 3px 5px; }
+  .topbar .title { font-size: 13px; letter-spacing: 0; }
+}
+
+/* 縦に余裕がない端末では段を詰めて、1 画面に収める */
+@media (max-height: 800px) {
+  :root { --line-h: 150px; --hand-u: min(30px, calc((var(--app-w) - 80px) / 7)); }
+  .coach { height: 84px; font-size: 11.5px; line-height: 1.45; }
+}
+@media (max-height: 700px) {
+  :root { --line-h: 124px; --hand-u: min(26px, calc((var(--app-w) - 80px) / 7)); --opp-u: 10px; }
+  .log { font-size: 11px; }
+  .coach { height: 52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  .self-hand .dom.playable:hover { transform: none; }
+}
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%233a2a1e'/><rect x='9' y='3' width='14' height='26' rx='3' fill='%23fbf6ea'/><rect x='11' y='15.5' width='10' height='1' fill='%23cfc3a8'/><circle cx='16' cy='9' r='2' fill='%23c0392b'/><circle cx='13' cy='20' r='1.6' fill='%231f5fae'/><circle cx='19' cy='25' r='1.6' fill='%231f5fae'/></svg>">
+<link rel="canonical" href="https://pikaring.github.io/line-on-domino/app/">
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <span class="title" data-act="title">ドミノ</span>
+    <button class="btn" data-act="difficulty">敵:ふつう</button>
+    <button class="btn" data-act="hint">ヒント</button>
+    <button class="btn" data-act="speed">速度:普</button>
+    <button class="btn" data-act="mode">ブロック</button>
+    <button class="btn" data-act="new-game">新規</button>
+    <button class="btn" data-act="rules">ルール</button>
+  </div>
+
+  <div class="infobar" id="infobar"></div>
+  <div class="board" id="board"></div>
+  <div class="line-box" id="line"></div>
+  <div class="coach" id="coach" hidden></div>
+  <div class="log" id="log"></div>
+  <div id="self"></div>
+  <div class="actions" id="actions"></div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="overlay" id="rules-overlay" hidden>
+  <div class="sheet">
+    <h2>ルール</h2>
+    <div class="detail">
+      <b>基本</b><br>
+      ・0〜6 の目のドミノ 28 枚を、4 人に 7 枚ずつ配ります（山は残りません）。<br>
+      ・最初の局は <b>6-6 を持っている人が 6-6 から</b>始めます。2 局目からは前の局の勝者が、好きな牌で始めます。<br>
+      ・手番では、場の<b>左端か右端に、同じ目でつなぎます</b>。<br>
+      ・出せる牌があれば必ず出します。出せなければパス。<br>
+      ・手牌を出し切った人が勝者（<b>ドミノ</b>）です。<br>
+      ・4 人続けてパスしたら行き詰まり（<b>ブロック</b>）。残った目の合計が一番少ない人が勝者です。最少が同点なら、その局は誰も得点しません。
+      <div class="divider"></div>
+      <b>得点方式（上の「ブロック／オール5」で切り替え）</b><br>
+      ・<b>ブロック</b>：勝者が、他の 3 人の残り目の合計を得点します。100 点先取。<br>
+      ・<b>オールファイブ</b>：上の得点に加えて、つないだ直後の<b>両端の目の合計が 5 の倍数なら、その数が得点</b>になります。端の牌がダブルなら、その端は両方の目を数えます（例：左端が 5-5 で右端が 5 なら 15 点）。局の終わりの得点は 5 点単位に丸めます。200 点先取。<br>
+      ・誰かが目標点に届いたら、その局の精算で対戦終了。一番点の高い人が勝ちです。
+      <div class="divider"></div>
+      <b>対戦相手</b><br>
+      5 人の打ち筋から 3 人が毎回ランダムで選ばれます。
+      <div id="char-list"></div>
+      <div class="divider"></div>
+      <b>操作</b><br>
+      ・自分の番は、手牌をタップして場につなぎます。出せない牌は暗くなります。<br>
+      ・左右どちらにもつなげる牌は、タップしたあと「左端へ／右端へ」を選びます。<br>
+      ・場の金枠が両端です。「左」「右」の札が付いた牌の外側の目につなぎます。<br>
+      ・「ヒント」を ON にすると、おすすめの手と理由、各 CPU が<b>持っていないと分かっている目</b>（パスした時点の両端の目）、目ごとの見えていない牌の数を表示します。<br>
+      ・「敵」で CPU の腕前を やさしい／ふつう／つよい から選べます。打ち筋（上のキャラクター）が「どう打ちたいか」、腕前が「それをどれだけ正確に実行できるか」です。<br>CPU は自分の手牌と、場・各席の枚数・パスの記録しか見ていません（他の人の手牌は見ません）。
+    </div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn primary" data-act="close-rules">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+ * tiles.js - ドミノ牌の定義と、乱数・並べ替えなどの共通処理
+ *
+ * ダブルシックス（0〜6 の目）の 28 枚。牌は { id, a, b }（a <= b）で表す。
+ * 場に置いた牌は向きがあるので { tile, l, r, by }（左の目・右の目・出した席）で持つ。
+ */
+(function (global) {
+  'use strict';
+
+  var DM = global.DM || (global.DM = {});
+
+  var TILES = [];
+  (function () {
+    var id = 0;
+    for (var a = 0; a <= 6; a++) {
+      for (var b = a; b <= 6; b++) TILES.push({ id: id++, a: a, b: b });
+    }
+  })();
+
+  function pips(t) { return t.a + t.b; }
+  function isDouble(t) { return t.a === t.b; }
+  function has(t, n) { return t.a === n || t.b === n; }
+  /** n の目でつないだとき、反対側に出る目 */
+  function other(t, n) { return t.a === n ? t.b : t.a; }
+  function label(t) { return t.b + '-' + t.a; }
+
+  function handPips(hand) {
+    return hand.reduce(function (s, t) { return s + pips(t); }, 0);
+  }
+
+  /** 再現できる乱数（テスト・実測用） */
+  function mulberry32(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffle(arr, rng) {
+    rng = rng || Math.random;
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rng() * (i + 1));
+      var x = arr[i]; arr[i] = arr[j]; arr[j] = x;
+    }
+    return arr;
+  }
+
+  /** 手牌の並び: 大きい目を左に（ダブルは同じ目の中で先頭） */
+  function sortHand(hand) {
+    return hand.sort(function (x, y) {
+      return (y.b - x.b) || (y.a - x.a);
+    });
+  }
+
+  DM.TILES = TILES;
+  DM.pips = pips;
+  DM.isDouble = isDouble;
+  DM.has = has;
+  DM.other = other;
+  DM.label = label;
+  DM.handPips = handPips;
+  DM.mulberry32 = mulberry32;
+  DM.shuffle = shuffle;
+  DM.sortHand = sortHand;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/*
+ * ai.js - CPU の思考ルーチン
+ *
+ * CPU は「キャラクター（打ち筋）」と「難易度（腕前）」の 2 つで性格が決まる。
+ *
+ *   キャラクター ... 7 つの評価項目への重み
+ *   難易度       ... パスから相手の手をどこまで読むか、どれくらい最善手を外すか
+ *
+ * 1 手ごとに、出せる手（牌 × 左右）それぞれを次の式で評価する。
+ *
+ *   評価 = 重さ     * 出す牌の目の合計（重い牌を先に処理して、負けたときの失点を減らす）
+ *        + ダブル   * ダブルかどうか（ダブルは出せる場面が少ないので早めに出す）
+ *        + 温存     * 他の 3 人が 1 巡したあと、自分がまた出せる確率・手元の目の種類
+ *        + 支配     * 両端の目を自分がどれだけ握っているか
+ *        + 封鎖     * 相手が次に出せなくなる確率（パスの記録から読む）
+ *        + 得点     * この手で取れる点（オールファイブ）
+ *        - 献上     * 次の人に取られそうな点（オールファイブ）
+ *
+ * 「相手が出せなくなる確率」は、見えていない牌を相手に配り直すモンテカルロ法で見積もる。
+ * 配り直すときに、パスで分かった「持っていない目」を条件に入れるかどうかが腕前の差になる。
+ *
+ * CPU が見るのは、自分の手牌と、場の並び・各席の手牌の枚数・パスの記録だけ。
+ * 他の席の手牌（hand）には触らない（tests/audit.js で検証）。
+ */
+(function (global) {
+  'use strict';
+
+  var DM = global.DM;
+
+  /* --- キャラクター ---------------------------------------------------- */
+  var CHARACTERS = [
+    {
+      name: '定石', tag: '均',
+      w: { heavy: 1.0, dbl: 1.0, keep: 1.0, ctl: 1.0, block: 1.0, score: 1.0, danger: 1.0 },
+      desc: '基準の打ち手。どの項目にも寄らず、状況ごとに素直に判断する'
+    },
+    {
+      name: '象', tag: '重',
+      w: { heavy: 5.0, dbl: 2.5, keep: 0.4, ctl: 0.3, block: 0.4, score: 0.8, danger: 0.5 },
+      desc: '重い牌とダブルから先に処理する。止められても失点が少ない'
+    },
+    {
+      name: '蛇', tag: '封',
+      w: { heavy: 0.6, dbl: 0.8, keep: 0.6, ctl: 0.8, block: 6.0, score: 0.8, danger: 2.0 },
+      desc: '相手がパスした目を端に残し、相手を詰ませにいく'
+    },
+    {
+      name: '猫', tag: '柔',
+      w: { heavy: 0.5, dbl: 0.6, keep: 5.0, ctl: 0.4, block: 0.5, score: 0.8, danger: 0.8 },
+      desc: '手元の目を散らさず、自分がパスしないことを最優先にする'
+    },
+    {
+      name: '鷹', tag: '攻',
+      w: { heavy: 0.6, dbl: 0.8, keep: 0.6, ctl: 4.0, block: 0.8, score: 3.0, danger: 0.3 },
+      desc: '自分が多く持つ目で場を支配する。オールファイブでは得点に貪欲'
+    }
+  ];
+
+  /* --- 難易度（腕前） -------------------------------------------------- */
+  var LEVELS = [
+    // readVoids : パスで分かった「持っていない目」を読みに使うか
+    // samples   : 相手の手を配り直す回数
+    // slip/slipTop: この確率で最善手ではなく 2〜slipTop 番手を選ぶ
+    { name: 'やさしい', readVoids: false, samples: 40, slip: 0.45, slipTop: 3 },
+    { name: 'ふつう', readVoids: true, samples: 120, slip: 0.20, slipTop: 2 },
+    { name: 'つよい', readVoids: true, samples: 300, slip: 0, slipTop: 1 }
+  ];
+
+  var OPP_WEIGHT = [0, 0.6, 0.25, 0.15];   // 下家・対面・上家の順に、次の手番に近いほど重く見る
+
+  function levelOf(game, me) {
+    var d = me && me.difficulty != null ? me.difficulty : game.difficulty;
+    return LEVELS[d == null ? 1 : Math.max(0, Math.min(LEVELS.length - 1, d))];
+  }
+
+  function charOf(me) {
+    var c = me && me.character != null ? me.character : 0;
+    return CHARACTERS[Math.max(0, Math.min(CHARACTERS.length - 1, c))];
+  }
+
+  function rand(game) { return (game.rng || Math.random)(); }
+
+  /* --- 見えていない牌と、相手の手の配り直し ----------------------------- */
+
+  /** 自分の手牌にも場にもない牌（＝他の 3 人のどこかにある牌） */
+  function unseenTiles(game, me) {
+    var seen = {};
+    me.hand.forEach(function (t) { seen[t.id] = true; });
+    game.line.forEach(function (x) { seen[x.tile.id] = true; });
+    return DM.TILES.filter(function (t) { return !seen[t.id]; });
+  }
+
+  /**
+   * 見えていない牌を、各席の枚数どおりに配り直した例を n 通り作る。
+   * readVoids なら、パスで「持っていない」と分かった目の牌はその席に配らない。
+   * 返り値: [{ seat: [tiles] }, ...]（自分の席は含まない）
+   */
+  function sampleDeals(game, me, n, readVoids, rng) {
+    var pool = unseenTiles(game, me);
+    var opps = game.players.filter(function (p) { return p.seat !== me.seat; })
+      .map(function (p) { return { seat: p.seat, count: p.count, voids: p.voids.slice() }; });
+    var out = [];
+
+    function allowed(o, t) {
+      return !readVoids || !(o.voids[t.a] || o.voids[t.b]);
+    }
+
+    function tryDeal(useVoids) {
+      var tiles = DM.shuffle(pool.slice(), rng);
+      // 置き場所の少ない牌から配ると行き詰まりにくい
+      if (useVoids) {
+        var places = {};
+        tiles.forEach(function (t) {
+          places[t.id] = opps.filter(function (o) { return allowed(o, t); }).length;
+        });
+        tiles.sort(function (x, y) { return places[x.id] - places[y.id]; });
+      }
+      var room = {}, deal = {};
+      opps.forEach(function (o) { room[o.seat] = o.count; deal[o.seat] = []; });
+      for (var i = 0; i < tiles.length; i++) {
+        var t = tiles[i];
+        var cands = opps.filter(function (o) { return room[o.seat] > 0 && (!useVoids || allowed(o, t)); });
+        if (!cands.length) return null;
+        var total = cands.reduce(function (s, o) { return s + room[o.seat]; }, 0);
+        var r = rng() * total, pick = cands[cands.length - 1];
+        for (var k = 0; k < cands.length; k++) {
+          r -= room[cands[k].seat];
+          if (r < 0) { pick = cands[k]; break; }
+        }
+        room[pick.seat]--;
+        deal[pick.seat].push(t);
+      }
+      return deal;
+    }
+
+    for (var i = 0; i < n; i++) {
+      var d = null;
+      for (var tries = 0; tries < 8 && !d; tries++) d = tryDeal(readVoids);
+      if (!d) d = tryDeal(false);
+      out.push(d);
+    }
+    return out;
+  }
+
+  /* --- 評価 ------------------------------------------------------------ */
+
+  function canFollow(hand, L, R) {
+    return hand.some(function (t) { return DM.has(t, L) || DM.has(t, R); });
+  }
+
+  /**
+   * 配り直した相手の手 deal で、他の 3 人が 1 回ずつ（出せる牌を適当に）つないだあと、
+   * 自分の番に rest から出せるかどうか。
+   */
+  function canFollowLater(seat, deal, L, R, rest, rng) {
+    for (var k = 1; k <= 3; k++) {
+      var hand = deal[(seat + k) % 4];
+      var ok = hand.filter(function (t) { return DM.has(t, L) || DM.has(t, R); });
+      if (!ok.length) continue;
+      var t = ok[Math.floor(rng() * ok.length)];
+      var toL = DM.has(t, L) && (!DM.has(t, R) || rng() < 0.5);
+      if (toL) L = DM.other(t, L); else R = DM.other(t, R);
+    }
+    return canFollow(rest, L, R);
+  }
+
+  /** 1 手ぶんの点数（オールファイブ）を、仮の場 line に対して計算する */
+  function bestScoreOn(game, line, hand) {
+    var L = line[0].l, R = line[line.length - 1].r;
+    var best = 0;
+    hand.forEach(function (t) {
+      ['L', 'R'].forEach(function (side) {
+        var e = side === 'L' ? L : R;
+        if (!DM.has(t, e)) return;
+        var s = game.endSum(game.placed(t, side, line));
+        if (s > 0 && s % 5 === 0 && s > best) best = s;
+      });
+    });
+    return best;
+  }
+
+  /**
+   * 出せる手それぞれの評価項目を計算する。
+   * 返り値: [{ move, tile, rest, ends: [L, R], f: { heavy, dbl, keep, ctl, block, score, danger },
+   *            oppBlock: { seat: 確率 }, points }]
+   */
+  function analyze(game, me, moves, level, rng) {
+    var deals = sampleDeals(game, me, level.samples, level.readVoids, rng);
+    var unseen = unseenTiles(game, me);
+
+    return moves.map(function (m) {
+      var tile = me.hand[m.index];
+      var line = game.placed(tile, m.side);
+      var L = line[0].l, R = line[line.length - 1].r;
+      var rest = me.hand.filter(function (_, i) { return i !== m.index; });
+      var points = game.scoreOf(tile, m.side);
+
+      // 温存: 手元の目の種類（どこに何が来ても出せるように）
+      var kinds = {};
+      rest.forEach(function (t) { kinds[t.a] = 1; kinds[t.b] = 1; });
+
+      // 支配: 端の目の残り牌を、自分がどれだけ握っているか
+      function share(e) {
+        var mine = rest.filter(function (t) { return DM.has(t, e); }).length;
+        var other = unseen.filter(function (t) { return DM.has(t, e); }).length;
+        return mine / (mine + other + 0.5);
+      }
+      var ctl = (share(L) + share(R)) / 2;
+
+      // 封鎖・献上: 配り直した相手の手で、次に出せるか・何点取れるか
+      var oppBlock = {}, danger = 0, follow = 0;
+      var next = (me.seat + 1) % 4;
+      game.players.forEach(function (p) { if (p.seat !== me.seat) oppBlock[p.seat] = 0; });
+      deals.forEach(function (d) {
+        Object.keys(d).forEach(function (seat) {
+          if (!canFollow(d[seat], L, R)) oppBlock[seat]++;
+        });
+        if (game.mode === 'fives') danger += bestScoreOn(game, line, d[next]);
+        if (rest.length && canFollowLater(me.seat, d, L, R, rest, rng)) follow++;
+      });
+      follow = rest.length ? follow / deals.length : 1;
+      var keep = 0.7 * follow + 0.3 * Object.keys(kinds).length / 7;
+      var block = 0;
+      Object.keys(oppBlock).forEach(function (seat) {
+        oppBlock[seat] /= deals.length;
+        block += OPP_WEIGHT[(seat - me.seat + 4) % 4] * oppBlock[seat];
+      });
+      danger /= deals.length;
+
+      return {
+        move: m, tile: tile, rest: rest, ends: [L, R], points: points,
+        oppBlock: oppBlock, dangerPts: danger, follow: follow,
+        f: {
+          heavy: DM.pips(tile) / 12,
+          dbl: DM.isDouble(tile) ? 1 : 0,
+          keep: keep,
+          ctl: ctl,
+          block: block,
+          score: points / 20,
+          danger: danger / 20
+        }
+      };
+    });
+  }
+
+  function valueOf(a, w) {
+    if (!a.rest.length) return 1000; // 出し切れるなら何よりも優先
+    var f = a.f;
+    return w.heavy * f.heavy + w.dbl * f.dbl + w.keep * f.keep + w.ctl * f.ctl +
+      w.block * f.block + w.score * f.score - w.danger * f.danger;
+  }
+
+  /** 評価して高い順に並べる（ヒントからも使う） */
+  function rank(game, me, moves, opts) {
+    opts = opts || {};
+    var level = opts.level || levelOf(game, me);
+    var w = opts.weights || charOf(me).w;
+    var rng = opts.rng || game.rng || Math.random;
+    var list = analyze(game, me, moves, level, rng);
+    list.forEach(function (a) { a.value = valueOf(a, w); });
+    return list.sort(function (x, y) { return y.value - x.value; });
+  }
+
+  function chooseMove(game, me, moves) {
+    if (moves.length === 1) return moves[0];
+    var level = levelOf(game, me);
+    var list = rank(game, me, moves, { level: level });
+    var pick = 0;
+    if (level.slip > 0 && list.length > 1 && list[0].rest.length && rand(game) < level.slip) {
+      pick = 1 + Math.floor(rand(game) * Math.min(level.slipTop - 1, list.length - 1));
+    }
+    return list[pick].move;
+  }
+
+  DM.ai = {
+    CHARACTERS: CHARACTERS,
+    LEVELS: LEVELS,
+    unseenTiles: unseenTiles,
+    sampleDeals: sampleDeals,
+    analyze: analyze,
+    rank: rank,
+    chooseMove: chooseMove
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/*
+ * game.js - ドミノ（4 人・ダブルシックス）のゲームエンジン
+ *
+ * ルール:
+ *   - 28 枚を 4 人に 7 枚ずつ配る（山は残らない）
+ *   - 最初の局は 6-6 を持っている人が 6-6 から始める。2 局目からは前局の勝者が好きな牌で始める
+ *   - 手番では、場の両端（左端・右端）のどちらかに同じ目でつなぐ。出せる牌があれば必ず出す
+ *   - 出せなければパス。4 人続けてパスしたら「ブロック（行き詰まり）」
+ *   - 手牌を出し切った人が「ドミノ」で局の勝者
+ *
+ * 得点（2 方式）:
+ *   block ... 勝者が他の 3 人の残り目の合計を得る。行き詰まりは残り目が最少の人が勝者
+ *             （最少が同点なら得点なし）
+ *   fives ... 上に加えて、つないだ直後に両端の目の合計が 5 の倍数ならその点を得る
+ *             （端がダブルなら両方の目を数える）。局の精算は 5 点単位に丸める
+ */
+(function (global) {
+  'use strict';
+
+  var DM = global.DM;
+  var SEAT_NAMES = ['あなた', '下家CPU', '対面CPU', '上家CPU'];
+  var SEAT_LABELS = ['', '下家', '対面', '上家'];
+  var TARGETS = { block: 100, fives: 200 };
+
+  function Game(opts) {
+    opts = opts || {};
+    this.onEvent = opts.onEvent || function () {};
+    this.speed = opts.speed == null ? 650 : opts.speed;
+    this.seed = opts.seed;
+    this.mode = opts.mode === 'fives' ? 'fives' : 'block';
+    this.target = opts.target || TARGETS[this.mode];
+    // CPU の強さ 0=やさしい / 1=ふつう / 2=つよい
+    this.difficulty = opts.difficulty == null ? 1 : opts.difficulty;
+    this.players = [0, 1, 2, 3].map(function (i) {
+      return {
+        seat: i,
+        name: SEAT_NAMES[i],
+        seatLabel: SEAT_LABELS[i],
+        isAI: i !== 0,
+        character: null,
+        difficulty: null,
+        score: 0,
+        hand: [],
+        count: 0,          // 手牌の枚数（公開情報。CPU はこちらだけを見る）
+        voids: [],         // パスしたことで「持っていない」と分かった目（公開情報）
+        passed: false
+      };
+    });
+    this.line = [];
+    this.timer = null;
+  }
+
+  /* --- 進行制御 -------------------------------------------------------- */
+
+  Game.prototype.emit = function (type, data) { this.onEvent(type, data || {}); };
+  Game.prototype.log = function (msg) { this.emit('log', { message: msg }); };
+
+  Game.prototype.schedule = function (fn) {
+    var self = this;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(function () { fn.call(self); }, this.speed);
+  };
+
+  Game.prototype.stop = function () { clearTimeout(this.timer); };
+
+  /* --- 開始 ------------------------------------------------------------ */
+
+  Game.prototype.startGame = function () {
+    this.rng = this.seed != null ? DM.mulberry32(this.seed) : Math.random;
+    this.players.forEach(function (p) { p.score = 0; });
+    this.assignCharacters();
+    this.handNo = 0;
+    this.nextLeader = null;
+    this.finished = false;
+    this.gameOver = false;
+    this.startHand();
+  };
+
+  /** CPU の打ち筋を 5 人から 3 人、重複なく抽選する */
+  Game.prototype.assignCharacters = function () {
+    var pool = DM.ai.CHARACTERS.map(function (_, i) { return i; });
+    DM.shuffle(pool, this.rng);
+    var k = 0;
+    this.players.forEach(function (p) {
+      if (!p.isAI) { p.character = null; return; }
+      p.character = pool[k++];
+      p.name = DM.ai.CHARACTERS[p.character].name;
+    });
+    this.log('対戦相手: ' + this.players.filter(function (p) { return p.isAI; })
+      .map(function (p) { return p.seatLabel + ' ' + p.name; }).join(' / '));
+  };
+
+  Game.prototype.startHand = function () {
+    var self = this;
+    var deck = DM.shuffle(DM.TILES.slice(), this.rng);
+    this.handNo++;
+    this.line = [];
+    this.passesInRow = 0;
+    this.awaiting = null;
+    this.result = null;
+    this.turns = 0;
+    this.players.forEach(function (p, i) {
+      p.hand = DM.sortHand(deck.slice(i * 7, i * 7 + 7));
+      p.count = 7;
+      p.voids = [false, false, false, false, false, false, false];
+      p.passed = false;
+    });
+
+    // 最初の局は 6-6 を持つ人から。2 局目以降は前局の勝者から
+    this.openingDouble = this.handNo === 1;
+    if (this.openingDouble) {
+      this.leader = this.players.filter(function (p) {
+        return p.hand.some(function (t) { return t.a === 6 && t.b === 6; });
+      })[0].seat;
+    } else {
+      this.leader = this.nextLeader;
+    }
+
+    this.log('=== 第' + this.handNo + '局 / 親: ' + this.players[this.leader].name +
+      (this.openingDouble ? '（6-6 から）' : '') + ' ===');
+    this.emit('handStart', {});
+    this.emit('update', {});
+    this.schedule(function () { self.beginTurn(self.leader); });
+  };
+
+  /* --- 場 -------------------------------------------------------------- */
+
+  Game.prototype.leftEnd = function () { return this.line.length ? this.line[0].l : null; };
+  Game.prototype.rightEnd = function () { return this.line.length ? this.line[this.line.length - 1].r : null; };
+
+  /** 両端の目の合計（オールファイブの得点判定）。端がダブルなら両方の目を数える */
+  Game.prototype.endSum = function (line) {
+    line = line || this.line;
+    if (!line.length) return 0;
+    if (line.length === 1) return DM.pips(line[0].tile);
+    var L = line[0], R = line[line.length - 1];
+    return (DM.isDouble(L.tile) ? L.l * 2 : L.l) + (DM.isDouble(R.tile) ? R.r * 2 : R.r);
+  };
+
+  /** 手牌 hand で出せる手の一覧 [{ index, side: 'L'|'R' }] */
+  Game.prototype.legalMoves = function (hand) {
+    var moves = [];
+    if (!this.line.length) {
+      hand.forEach(function (t, i) {
+        if (this.openingDouble && !(t.a === 6 && t.b === 6)) return;
+        moves.push({ index: i, side: 'R' });
+      }, this);
+      return moves;
+    }
+    var L = this.leftEnd(), R = this.rightEnd();
+    hand.forEach(function (t, i) {
+      // 両端が同じ目なら、どちらに置いても局面は同じなので右だけにする
+      if (DM.has(t, L) && L !== R) moves.push({ index: i, side: 'L' });
+      if (DM.has(t, R)) moves.push({ index: i, side: 'R' });
+    });
+    return moves;
+  };
+
+  /**
+   * 牌を置いたあとの場を返す（this.line は変えない）。CPU の読みとヒントでも使う。
+   */
+  Game.prototype.placed = function (tile, side, line) {
+    line = (line || this.line).slice();
+    if (!line.length) {
+      line.push({ tile: tile, l: tile.b, r: tile.a });
+    } else if (side === 'L') {
+      var e = line[0].l;
+      line.unshift({ tile: tile, l: DM.other(tile, e), r: e });
+    } else {
+      var f = line[line.length - 1].r;
+      line.push({ tile: tile, l: f, r: DM.other(tile, f) });
+    }
+    return line;
+  };
+
+  /** その手で得られるオールファイブの点（block では常に 0） */
+  Game.prototype.scoreOf = function (tile, side) {
+    if (this.mode !== 'fives') return 0;
+    var s = this.endSum(this.placed(tile, side));
+    return s > 0 && s % 5 === 0 ? s : 0;
+  };
+
+  /* --- 手番 ------------------------------------------------------------ */
+
+  Game.prototype.beginTurn = function (seat) {
+    if (this.result || this.gameOver) return;
+    var p = this.players[seat];
+    this.current = seat;
+    var moves = this.legalMoves(p.hand);
+
+    if (!moves.length) {
+      if (p.isAI) {
+        this.awaiting = null;
+        this.emit('update', {});
+        this.schedule(function () { this.pass(p); });
+      } else {
+        this.awaiting = { type: 'pass', seat: seat };
+        this.emit('await', this.awaiting);
+        this.emit('update', {});
+      }
+      return;
+    }
+
+    if (p.isAI) {
+      this.awaiting = null;
+      this.emit('update', {});
+      this.schedule(function () {
+        var m = DM.ai.chooseMove(this, p, moves);
+        this.play(p, m);
+      });
+    } else {
+      this.awaiting = { type: 'turn', seat: seat, moves: moves };
+      this.emit('await', this.awaiting);
+      this.emit('update', {});
+    }
+  };
+
+  Game.prototype.play = function (p, move) {
+    var tile = p.hand.splice(move.index, 1)[0];
+    var first = !this.line.length;
+    var pts = this.scoreOf(tile, move.side);
+    this.line = this.placed(tile, move.side);
+    this.line[move.side === 'L' ? 0 : this.line.length - 1].by = p.seat;
+    p.count = p.hand.length;
+    p.passed = false;
+    this.passesInRow = 0;
+    this.openingDouble = false;
+    this.awaiting = null;
+    this.turns++;
+
+    var where = first ? '' : (move.side === 'L' ? ' → 左端' : ' → 右端');
+    this.log(p.name + ' ' + DM.label(tile) + where + (pts ? '　' + pts + '点！' : ''));
+    if (pts) p.score += pts;
+    this.emit('play', { seat: p.seat, tile: tile, side: move.side, points: pts });
+    this.emit('update', {});
+
+    if (p.count === 0) { this.endHand('domino', p.seat); return; }
+    this.schedule(function () { this.beginTurn((p.seat + 1) % 4); });
+  };
+
+  Game.prototype.pass = function (p) {
+    var L = this.leftEnd(), R = this.rightEnd();
+    p.voids[L] = true;
+    p.voids[R] = true;
+    p.passed = true;
+    this.passesInRow++;
+    this.awaiting = null;
+    this.log(p.name + ' パス（' + (L === R ? L : L + '・' + R) + ' がない）');
+    this.emit('pass', { seat: p.seat });
+    this.emit('update', {});
+    if (this.passesInRow >= 4) { this.endHand('blocked', null); return; }
+    this.schedule(function () { this.beginTurn((p.seat + 1) % 4); });
+  };
+
+  /* --- プレイヤー操作 -------------------------------------------------- */
+
+  Game.prototype.playerPlay = function (index, side) {
+    var a = this.awaiting;
+    if (!a || a.type !== 'turn' || a.seat !== 0) return false;
+    var ok = a.moves.some(function (m) { return m.index === index && m.side === side; });
+    if (!ok) return false;
+    this.play(this.players[0], { index: index, side: side });
+    return true;
+  };
+
+  Game.prototype.playerPass = function () {
+    var a = this.awaiting;
+    if (!a || a.type !== 'pass' || a.seat !== 0) return false;
+    this.pass(this.players[0]);
+    return true;
+  };
+
+  /* --- 局の精算 -------------------------------------------------------- */
+
+  function round5(n) { return Math.round(n / 5) * 5; }
+
+  Game.prototype.endHand = function (type, winner) {
+    var self = this;
+    this.stop();
+    var pips = this.players.map(function (p) { return DM.handPips(p.hand); });
+
+    if (type === 'blocked') {
+      var min = Math.min.apply(null, pips);
+      var lows = pips.filter(function (x) { return x === min; }).length;
+      winner = lows === 1 ? pips.indexOf(min) : null;
+    }
+
+    var gain = 0;
+    if (winner != null) {
+      pips.forEach(function (x, i) { if (i !== winner) gain += x; });
+      if (this.mode === 'fives') gain = round5(gain);
+      this.players[winner].score += gain;
+    }
+
+    var detail = [];
+    if (type === 'domino') {
+      detail.push(this.players[winner].name + ' が出し切り（ドミノ）');
+    } else {
+      detail.push('4 人続けてパス（ブロック）。残り目の少ない人が勝者');
+      if (winner == null) detail.push('残り目が最少の人が同点のため、得点なし');
+    }
+    if (winner != null) {
+      detail.push(this.players[winner].name + ' +' + gain + '点（他の 3 人の残り目' +
+        (this.mode === 'fives' ? '、5 点単位に丸め' : '') + '）');
+    }
+
+    this.nextLeader = winner != null ? winner : (this.leader + 1) % 4;
+    this.finished = this.players.some(function (p) { return p.score >= self.target; });
+    this.awaiting = null;
+    this.result = {
+      type: type,
+      winner: winner,
+      gain: gain,
+      pips: pips,
+      hands: this.players.map(function (p) { return p.hand.slice(); }),
+      detail: detail,
+      final: this.finished
+    };
+    this.log(type === 'domino' ? '--- ' + this.players[winner].name + ' ドミノ！ +' + gain + '点 ---'
+      : '--- ブロック' + (winner != null ? '　' + this.players[winner].name + ' +' + gain + '点' : '（得点なし）') + ' ---');
+    this.emit('update', {});
+    this.emit('result', this.result);
+  };
+
+  Game.prototype.standings = function () {
+    return this.players.map(function (p) { return { seat: p.seat, name: p.name, score: p.score }; })
+      .sort(function (a, b) { return b.score - a.score || a.seat - b.seat; });
+  };
+
+  Game.prototype.nextHand = function () {
+    if (this.gameOver) return;
+    if (this.finished) {
+      this.gameOver = true;
+      this.emit('gameOver', { standings: this.standings(), hands: this.handNo });
+      return;
+    }
+    this.startHand();
+  };
+
+  Game.TARGETS = TARGETS;
+  DM.Game = Game;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/*
+ * coach.js - ヒント（おすすめの手と、その理由）
+ *
+ * advise(game) で、自分（席0）の手番のおすすめを返す。
+ *   { best, list, reasons[], voids, unseen }
+ *
+ * 評価は CPU と同じ ai.rank() を、定石の重み・つよいの読みで呼ぶ。
+ * ヒントも CPU と同じく、自分の手牌と公開情報（場・枚数・パスの記録）しか見ない。
+ * 乱数はゲーム本体の rng を使わない（ヒントを見たかどうかで CPU の手が変わらないように）。
+ */
+(function (global) {
+  'use strict';
+
+  var DM = global.DM;
+  var SEAT_WORD = ['あなた', '下家', '対面', '上家'];
+
+  function pct(x) { return Math.round(x * 100) + '%'; }
+
+  function ends(a) { return a.ends[0] === a.ends[1] ? String(a.ends[0]) : a.ends[0] + '・' + a.ends[1]; }
+
+  /** パスの記録から分かっている「持っていない目」 */
+  function voidText(p) {
+    var v = [];
+    p.voids.forEach(function (x, n) { if (x) v.push(n); });
+    return v;
+  }
+
+  function reasonsFor(game, a, second) {
+    var out = [];
+    if (!a.rest.length) return ['これで出し切り（ドミノ）です。'];
+
+    if (a.points) out.push('両端の合計が ' + a.points + ' になり、' + a.points + '点入ります。');
+
+    // 封鎖: 次に出せなくなりそうな相手
+    var seats = Object.keys(a.oppBlock).map(Number).sort(function (x, y) { return a.oppBlock[y] - a.oppBlock[x]; });
+    var top = seats[0];
+    if (a.oppBlock[top] >= 0.5) {
+      var p = game.players[top];
+      var known = voidText(p).filter(function (n) { return n === a.ends[0] || n === a.ends[1]; });
+      out.push(SEAT_WORD[top] + '（' + p.name + '）は次に出せない見込み ' + pct(a.oppBlock[top]) +
+        (known.length ? '。前に ' + known.join('・') + ' でパスしています。' : '。'));
+    }
+
+    if (DM.isDouble(a.tile)) {
+      out.push('ダブルはつなげる目が 1 種類しかないので、出せるうちに出しておきます。');
+    } else if (DM.pips(a.tile) >= 8) {
+      out.push('重い牌（' + DM.pips(a.tile) + '目）を先に処理。ブロックで負けたときの失点が減ります。');
+    }
+
+    if (a.follow >= 0.75) {
+      out.push('出したあと両端は ' + ends(a) + '。他の 3 人が 1 巡しても、自分がまた出せる見込み ' + pct(a.follow) + '。');
+    } else if (a.follow < 0.5) {
+      out.push('出したあと両端は ' + ends(a) + '。次の自分の番はパスになる恐れがあります（出せる見込み ' + pct(a.follow) + '）。');
+    }
+
+    if (game.mode === 'fives' && a.dangerPts >= 4) {
+      out.push('ただし下家に平均 ' + a.dangerPts.toFixed(1) + '点ほど取られる見込みがあります。');
+    }
+
+    if (second && out.length < 2) {
+      out.push('次点は ' + DM.label(second.tile) + (game.line.length ? (second.move.side === 'L' ? '（左端）' : '（右端）') : '') + '。');
+    }
+    return out.slice(0, 3);
+  }
+
+  function advise(game) {
+    var a = game.awaiting;
+    if (!a || a.seat !== 0 || a.type !== 'turn') return null;
+    var list = DM.ai.rank(game, game.players[0], a.moves, {
+      level: DM.ai.LEVELS[2],
+      weights: DM.ai.CHARACTERS[0].w,
+      rng: Math.random
+    });
+    var best = list[0];
+    return {
+      best: best,
+      list: list,
+      reasons: reasonsFor(game, best, list[1])
+    };
+  }
+
+  /** 目ごとの「まだ見えていない牌」の枚数（自分から見て） */
+  function unseenByNumber(game) {
+    var me = game.players[0];
+    var c = [0, 0, 0, 0, 0, 0, 0];
+    DM.ai.unseenTiles(game, me).forEach(function (t) {
+      c[t.a]++;
+      if (t.b !== t.a) c[t.b]++;
+    });
+    return c;
+  }
+
+  DM.coach = { advise: advise, voidText: voidText, unseenByNumber: unseenByNumber };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/*
+ * ui.js - 画面描画とプレイヤー操作
+ *
+ * レイアウトは iPhone Air（CSS 420x912）を基準にした固定配置。
+ * 段ごとの高さは CSS 側で決めてあり、場の並びだけは箱の大きさに収まるように
+ * ここで牌の寸法を計算して配置する（左上から右へ、次の段は右から左へ折り返す）。
+ */
+(function (global) {
+  'use strict';
+
+  var DM = global.DM;
+  var STORE_KEY = 'line-on-domino';
+
+  // 3×3 の格子のどこに目を打つか
+  var PIPS = [[], [4], [2, 6], [2, 4, 6], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
+
+  var game = null;
+  var settings = { difficulty: 1, speed: 650, mode: 'block', hint: false };
+  var selected = -1;       // 両端に出せる牌を選んで、左右を選んでいる途中
+  var lastId = null;       // 直前に場に出た牌
+  var advice = null;       // ヒントの結果（手番ごとに 1 回だけ計算する）
+  var adviceFor = null;
+  var logLines = [];
+
+  /* 裏技: 相手の手牌を公開する表示モード。
+     見えるようになるのは画面だけで、CPU の思考には一切影響しない。 */
+  var openMode = false;
+  var titleTaps = [];
+
+  function $(sel) { return document.querySelector(sel); }
+  function esc(s) {
+    return String(s).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  function loadSettings() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      Object.keys(settings).forEach(function (k) { if (s[k] != null) settings[k] = s[k]; });
+    } catch (e) { /* 保存できない環境でも既定値で動く */ }
+  }
+  function saveSettings() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) { /* 無視 */ }
+  }
+
+  /* --- 牌 -------------------------------------------------------------- */
+  function halfHTML(n) {
+    var cells = '';
+    for (var i = 0; i < 9; i++) cells += PIPS[n].indexOf(i) >= 0 ? '<span class="pip"></span>' : '<span></span>';
+    return '<span class="half n' + n + '">' + cells + '</span>';
+  }
+
+  /** x が左（縦なら上）、y が右（縦なら下）の目 */
+  function domHTML(x, y, orient, extra, attrs) {
+    return '<span class="dom ' + orient + (extra ? ' ' + extra : '') + '"' + (attrs || '') + '>' +
+      halfHTML(x) + '<span class="bar"></span>' + halfHTML(y) + '</span>';
+  }
+
+  function backHTML(extra) {
+    return '<span class="dom v back ' + (extra || '') + '"></span>';
+  }
+
+  /* --- 場 -------------------------------------------------------------- */
+
+  /**
+   * 場の並びを箱に収める。牌の寸法 u を大きい方から試し、
+   * 折り返した段数が箱の高さに収まる最大の u を使う。
+   * 偶数段は左から右、奇数段は右から左に並べる（蛇行）。
+   */
+  function layoutLine(box, line) {
+    var PAD = 6, GAP = 3;
+    var W = box.clientWidth - PAD * 2, H = box.clientHeight - PAD * 2;
+    var u, rows;
+    for (u = 30; u >= 7; u--) {
+      var cap = Math.floor((H + GAP) / (u * 2 + GAP));
+      rows = [[]];
+      var cur = 0;
+      for (var i = 0; i < line.length; i++) {
+        var w = DM.isDouble(line[i].tile) ? u : u * 2;
+        if (cur > 0 && cur + w > W) { rows.push([]); cur = 0; }
+        rows[rows.length - 1].push(i);
+        cur += w + GAP;
+      }
+      if (rows.length <= cap) break;
+    }
+
+    var rowH = u * 2;
+    var blockH = rows.length * rowH + (rows.length - 1) * GAP;
+    var offY = PAD + Math.max(0, (H - blockH) / 2);
+    var out = [];
+    rows.forEach(function (row, r) {
+      var rev = r % 2 === 1;
+      var widthOf = function (i) { return DM.isDouble(line[i].tile) ? u : u * 2; };
+      var total = row.reduce(function (s, i) { return s + widthOf(i) + GAP; }, -GAP);
+      // 1 段だけのときは中央に置く
+      var x = rows.length === 1 ? PAD + (W - total) / 2 : (rev ? PAD + W : PAD);
+      row.forEach(function (i) {
+        var p = line[i], w = widthOf(i), dbl = DM.isDouble(p.tile);
+        var left = rev ? x - w : x;
+        x = rev ? x - w - GAP : x + w + GAP;
+        var top = offY + r * (rowH + GAP) + (dbl ? 0 : u / 2);
+        var cls = [];
+        if (line.length > 1 && i === 0) cls.push('end-l');
+        if (line.length > 1 && i === line.length - 1) cls.push('end-r');
+        if (p.tile.id === lastId) cls.push('last');
+        var style = ' style="--u:' + u + 'px;left:' + left + 'px;top:' + top + 'px"';
+        out.push(dbl ? domHTML(p.l, p.r, 'v', cls.join(' '), style)
+          : rev ? domHTML(p.r, p.l, 'h', cls.join(' '), style)
+          : domHTML(p.l, p.r, 'h', cls.join(' '), style));
+      });
+    });
+    return out.join('');
+  }
+
+  function renderLine() {
+    var box = $('#line');
+    if (!game.line.length) {
+      var leader = game.players[game.leader];
+      box.innerHTML = '<div class="empty">' + (game.openingDouble
+        ? esc(leader.name) + ' の 6-6 から始まります'
+        : esc(leader.name) + ' から、好きな牌で始まります') + '</div>';
+      return;
+    }
+    box.innerHTML = layoutLine(box, game.line);
+  }
+
+  /* --- 局情報 ---------------------------------------------------------- */
+  function infobarHTML() {
+    var out = '<span class="round">第' + game.handNo + '局</span>' +
+      '<span class="stat"><b>' + game.target + '</b>点先取</span>' +
+      '<span class="stat">' + (game.mode === 'fives' ? 'オール5' : 'ブロック') + '</span>';
+    if (game.line.length) {
+      out += '<span class="ends">左<span class="end-num">' + game.leftEnd() + '</span>' +
+        '右<span class="end-num">' + game.rightEnd() + '</span>';
+      if (game.mode === 'fives') {
+        var s = game.endSum();
+        out += '<span class="sum' + (s % 5 === 0 ? ' hit' : '') + '">計' + s + '</span>';
+      }
+      out += '</span>';
+    }
+    return out;
+  }
+
+  /* --- 他の 3 人 ------------------------------------------------------- */
+  function voidChip(p) {
+    if (!settings.hint) return '';
+    var v = DM.coach.voidText(p);
+    return v.length ? '<span class="void">なし ' + v.join('・') + '</span>' : '';
+  }
+
+  function headHTML(p) {
+    var ch = p.character != null ? DM.ai.CHARACTERS[p.character] : null;
+    return '<div class="seat-head">' +
+      (p.seatLabel ? '<span class="seat-label">' + p.seatLabel + '</span>' : '') +
+      '<span class="nm">' + esc(p.name) + '</span>' +
+      (ch ? '<span class="tag">' + ch.tag + '</span>' : '') +
+      '<span class="pt">' + p.score + '</span>' +
+      (p.seat === game.leader ? '<span class="lead">親</span>' : '') +
+      (p.passed ? '<span class="pass-mark">パス</span>' : '') +
+      voidChip(p) +
+      '</div>';
+  }
+
+  function seatHTML(p) {
+    var backs = '';
+    if (openMode) {
+      backs = p.hand.map(function (t) { return domHTML(t.b, t.a, 'v', 'opp'); }).join('');
+    } else {
+      for (var i = 0; i < p.count; i++) backs += backHTML('opp');
+    }
+    var active = game.current === p.seat && !game.result;
+    return '<div class="seat' + (active ? ' active' : '') + '">' +
+      headHTML(p) + '<div class="backs">' + backs + '</div></div>';
+  }
+
+  /* --- 自分 ------------------------------------------------------------ */
+  function myMoves() {
+    var a = game.awaiting;
+    return a && a.type === 'turn' && a.seat === 0 ? a.moves : null;
+  }
+
+  function selfHTML() {
+    var p = game.players[0];
+    var moves = myMoves();
+    var rec = settings.hint && advice ? advice.best.move.index : -1;
+    var tiles = p.hand.map(function (t, i) {
+      var cls = [];
+      if (moves) {
+        var ok = moves.some(function (m) { return m.index === i; });
+        cls.push(ok ? 'playable' : 'dim');
+        if (i === selected) cls.push('selected');
+        if (i === rec) cls.push('rec');
+      }
+      return domHTML(t.b, t.a, 'v', cls.join(' '), ' data-index="' + i + '"');
+    }).join('');
+    var myTurn = game.current === 0 && game.awaiting && game.awaiting.seat === 0;
+    return '<div class="self' + (myTurn ? ' active' : '') + '">' +
+      headHTML(p) +
+      '<div class="self-hand" id="myhand">' + tiles + '</div>' +
+      '</div>';
+  }
+
+  /* --- ヒント ---------------------------------------------------------- */
+  function coachHTML() {
+    var counts = DM.coach.unseenByNumber(game);
+    var countLine = '<div class="count">見えていない牌の数 ' + counts.map(function (c, n) {
+      return n + ':' + c;
+    }).join('　') + '</div>';
+    if (!advice) {
+      return (game.awaiting && game.awaiting.type === 'pass' && game.awaiting.seat === 0
+        ? '<div><b>出せる牌がありません。</b>パスすると、他の人にも「' +
+          (game.leftEnd() === game.rightEnd() ? game.leftEnd() : game.leftEnd() + '・' + game.rightEnd()) +
+          ' を持っていない」ことが伝わります。</div>'
+        : '<div>自分の番になると、おすすめの手と理由をここに出します。</div>') + countLine;
+    }
+    var b = advice.best;
+    var where = game.line.length ? (b.move.side === 'L' ? 'を左端へ' : 'を右端へ') : 'から始める';
+    return '<div><b>おすすめ</b> ' + DM.label(b.tile) + ' ' + where + '</div>' +
+      advice.reasons.map(function (r) { return '<div class="reason">' + esc(r) + '</div>'; }).join('') +
+      countLine;
+  }
+
+  function updateAdvice() {
+    var a = game.awaiting;
+    if (!settings.hint || !a || a.seat !== 0 || a.type !== 'turn') { advice = null; adviceFor = null; return; }
+    if (adviceFor === a) return;
+    adviceFor = a;
+    advice = DM.coach.advise(game);
+  }
+
+  /* --- コマンド -------------------------------------------------------- */
+  function actionsHTML() {
+    var a = game.awaiting;
+    if (game.result || game.gameOver) return '<span class="hint">&nbsp;</span>';
+    if (!a) {
+      var p = game.players[game.current];
+      return '<span class="hint">' + (p ? esc(p.name) + ' 思考中…' : '') + '</span>';
+    }
+    if (a.type === 'pass') {
+      return '<span class="hint">出せる牌がありません</span>' +
+        '<button class="btn primary" data-act="pass">パス</button>';
+    }
+    if (selected >= 0) {
+      var t = game.players[0].hand[selected];
+      var recSide = settings.hint && advice && advice.best.move.index === selected ? advice.best.move.side : null;
+      return '<span class="hint">' + DM.label(t) + ' を</span>' +
+        '<button class="btn' + (recSide === 'L' ? ' rec' : '') + '" data-act="side-L">◀ 左端 ' + game.leftEnd() + ' へ</button>' +
+        '<button class="btn' + (recSide === 'R' ? ' rec' : '') + '" data-act="side-R">右端 ' + game.rightEnd() + ' へ ▶</button>' +
+        '<button class="btn" data-act="unselect">やめる</button>';
+    }
+    return '<span class="hint">' + (game.line.length ? '牌を押して場につなぐ' : '牌を押して最初の 1 枚を出す') + '</span>';
+  }
+
+  /* --- 描画 ------------------------------------------------------------ */
+  function render() {
+    if (!game) return;
+    updateAdvice();
+    $('#infobar').innerHTML = infobarHTML();
+    // 手番は 自分 → 下家 → 対面 → 上家 → 自分 と回るので、上から 下家 / 対面 / 上家 の順に並べる
+    $('#board').innerHTML = [1, 2, 3].map(function (i) { return seatHTML(game.players[i]); }).join('');
+    renderLine();
+    var coach = $('#coach');
+    coach.hidden = !settings.hint;
+    if (settings.hint) coach.innerHTML = coachHTML();
+    $('#self').innerHTML = selfHTML();
+    $('#actions').innerHTML = actionsHTML();
+  }
+
+  function renderLog() {
+    var el = $('#log');
+    el.innerHTML = logLines.slice(-60).map(function (l) {
+      return '<div class="' + (l.hl ? 'hl' : '') + '">' + esc(l.text) + '</div>';
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  /* --- 結果 ------------------------------------------------------------ */
+  function restListHTML(info) {
+    return '<div class="rest-list">' + game.players.map(function (p, i) {
+      var win = info.winner === i;
+      var tiles = info.hands[i].map(function (t) { return domHTML(t.b, t.a, 'h', 'mini'); }).join('');
+      return '<div class="' + (win ? 'win' : '') + '">' + esc(p.name) + '</div>' +
+        '<div class="tiles">' + (tiles || '<span style="opacity:.6">なし</span>') + '</div>' +
+        '<div class="pp">' + info.pips[i] + '目</div>';
+    }).join('') + '</div>';
+  }
+
+  function scoresHTML() {
+    return '<div class="standings">' + game.players.map(function (p) {
+      return '<div class="' + (p.seat === 0 ? 'me' : '') + '">' + esc(p.name) + '　' + p.score + '点</div>';
+    }).join('') + '</div>';
+  }
+
+  function showResult(info) {
+    var title = info.type === 'domino'
+      ? esc(game.players[info.winner].name) + ' ドミノ！'
+      : 'ブロック';
+    $('#sheet').innerHTML =
+      '<h2>' + title + '</h2>' +
+      '<div class="sub">第' + game.handNo + '局の結果（' + game.target + '点先取）</div>' +
+      restListHTML(info) +
+      (info.winner != null ? '<div class="score">' + esc(game.players[info.winner].name) + ' +' + info.gain + '点</div>' : '') +
+      '<div class="detail">' + info.detail.map(esc).join('<br>') + '</div>' +
+      '<div class="divider"></div>' + scoresHTML() +
+      '<div style="margin-top:12px;text-align:right">' +
+      '<button class="btn primary" data-act="next">' + (info.final ? '最終結果へ' : '次の局へ') + '</button></div>';
+    $('#overlay').hidden = false;
+  }
+
+  function showGameOver(data) {
+    var rank = 0, prev = null;
+    $('#sheet').innerHTML =
+      '<h2>' + (data.standings[0].seat === 0 ? 'あなたの勝ち！' : '対戦終了') + '</h2>' +
+      '<div class="sub">' + game.target + '点に到達（全' + data.hands + '局）</div>' +
+      '<div class="standings">' + data.standings.map(function (s, i) {
+        if (s.score !== prev) { rank = i + 1; prev = s.score; }
+        return '<div class="' + (s.seat === 0 ? 'me' : '') + '">' +
+          rank + '位　' + esc(s.name) + '　' + s.score + '点</div>';
+      }).join('') + '</div>' +
+      '<div style="margin-top:12px;text-align:right">' +
+      '<button class="btn primary" data-act="restart">もう一度</button></div>';
+    $('#overlay').hidden = false;
+  }
+
+  /* --- イベント -------------------------------------------------------- */
+  function onEvent(type, data) {
+    if (type === 'log') {
+      logLines.push({ text: data.message, hl: /===|ドミノ|ブロック|点！/.test(data.message) });
+      renderLog();
+      return;
+    }
+    if (type === 'play') { lastId = data.tile.id; return; }
+    if (type === 'handStart') { selected = -1; lastId = null; return; }
+    if (type === 'update' || type === 'await') { render(); return; }
+    if (type === 'result') { render(); showResult(data); return; }
+    if (type === 'gameOver') { showGameOver(data); return; }
+  }
+
+  function handleHandClick(e) {
+    var el = e.target.closest('[data-index]');
+    if (!el) return;
+    var moves = myMoves();
+    if (!moves) return;
+    var index = parseInt(el.getAttribute('data-index'), 10);
+    var mine = moves.filter(function (m) { return m.index === index; });
+    if (!mine.length) return;
+    if (mine.length === 1) {
+      selected = -1;
+      game.playerPlay(index, mine[0].side);
+      return;
+    }
+    selected = selected === index ? -1 : index;
+    render();
+  }
+
+  /** タイトルを 3 秒以内に 5 回叩くと、相手の手牌の公開を切り替える */
+  function handleTitleTap() {
+    var now = Date.now();
+    titleTaps = titleTaps.filter(function (t) { return now - t < 3000; });
+    titleTaps.push(now);
+    if (titleTaps.length < 5) return;
+    titleTaps = [];
+    setOpenMode(!openMode);
+  }
+
+  function setOpenMode(on) {
+    openMode = on;
+    var title = $('.title');
+    if (title) title.classList.toggle('open-mode', openMode);
+    logLines.push({
+      text: openMode ? '裏技: 相手の手牌を公開しました（CPU の打ち方は変わりません）'
+        : '裏技: 相手の手牌を伏せました',
+      hl: true
+    });
+    renderLog();
+    render();
+  }
+
+  var SPEEDS = [1100, 650, 300, 60];
+  var SPEED_LABELS = ['遅', '普', '速', '瞬'];
+
+  function labelButtons() {
+    $('[data-act="difficulty"]').textContent = '敵:' + DM.ai.LEVELS[settings.difficulty].name;
+    $('[data-act="speed"]').textContent = '速度:' + SPEED_LABELS[Math.max(0, SPEEDS.indexOf(settings.speed))];
+    $('[data-act="mode"]').textContent = settings.mode === 'fives' ? 'オール5' : 'ブロック';
+    $('[data-act="hint"]').classList.toggle('on', settings.hint);
+  }
+
+  function handleAction(e) {
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    switch (btn.getAttribute('data-act')) {
+      case 'title': handleTitleTap(); break;
+      case 'pass': game.playerPass(); break;
+      case 'side-L':
+      case 'side-R':
+        var i = selected;
+        selected = -1;
+        game.playerPlay(i, btn.getAttribute('data-act') === 'side-L' ? 'L' : 'R');
+        break;
+      case 'unselect': selected = -1; render(); break;
+      case 'next': $('#overlay').hidden = true; game.nextHand(); break;
+      case 'restart': $('#overlay').hidden = true; startGame(); break;
+      case 'new-game': startGame(); break;
+      case 'hint':
+        settings.hint = !settings.hint;
+        saveSettings(); labelButtons(); render();
+        break;
+      case 'difficulty':
+        settings.difficulty = (settings.difficulty + 1) % DM.ai.LEVELS.length;
+        game.difficulty = settings.difficulty;
+        saveSettings(); labelButtons();
+        break;
+      case 'speed':
+        var k = (SPEEDS.indexOf(settings.speed) + 1) % SPEEDS.length;
+        settings.speed = SPEEDS[k];
+        game.speed = settings.speed;
+        saveSettings(); labelButtons();
+        break;
+      case 'mode':
+        var next = settings.mode === 'fives' ? 'block' : 'fives';
+        var started = game && (game.handNo > 1 || game.line.length > 0);
+        if (started && !global.confirm('得点方式を「' + (next === 'fives' ? 'オールファイブ' : 'ブロック') +
+          '」に変えて、最初からやり直しますか？')) break;
+        settings.mode = next;
+        saveSettings(); labelButtons();
+        startGame();
+        break;
+    }
+  }
+
+  function startGame() {
+    if (game) game.stop();
+    selected = -1; lastId = null; advice = null; adviceFor = null;
+    $('#overlay').hidden = true;
+    game = new DM.Game({
+      onEvent: onEvent,
+      speed: settings.speed,
+      difficulty: settings.difficulty,
+      mode: settings.mode
+    });
+    logLines.push({ text: '--- 新しい対戦（' + (settings.mode === 'fives' ? 'オールファイブ' : 'ブロック') +
+      '・' + game.target + '点先取）---', hl: true });
+    renderLog();
+    game.startGame();
+  }
+
+  function renderCharList() {
+    var el = $('#char-list');
+    if (!el) return;
+    el.innerHTML = DM.ai.CHARACTERS.map(function (c) {
+      return '<div class="char"><div class="char-top"><b>' + esc(c.name) + '</b><span class="tag">' + c.tag +
+        '</span></div><div class="char-desc">' + esc(c.desc) + '</div></div>';
+    }).join('');
+  }
+
+  function init() {
+    loadSettings();
+    if (SPEEDS.indexOf(settings.speed) < 0) settings.speed = 650;
+    settings.difficulty = Math.max(0, Math.min(DM.ai.LEVELS.length - 1, settings.difficulty | 0));
+    labelButtons();
+    renderCharList();
+    document.addEventListener('click', handleAction);
+    $('#self').addEventListener('click', handleHandClick);
+    global.addEventListener('resize', function () { if (game) renderLine(); });
+    if (/#open\b/.test(location.hash)) setOpenMode(true);
+    startGame();
+  }
+
+  DM.ui = { init: init };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    var act = btn.getAttribute('data-act');
+    if (act === 'rules') document.getElementById('rules-overlay').hidden = false;
+    if (act === 'close-rules') document.getElementById('rules-overlay').hidden = true;
+  });
+  DM.ui.init();
+</script>
+</body>
+</html>
