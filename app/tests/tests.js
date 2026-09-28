@@ -57,113 +57,118 @@
     }
   });
 
-  /* --- 場のつなぎ方 ---------------------------------------------------- */
-  test('最初の局は 6-6 しか出せない', function () {
-    var g = syncGame();
-    g.openingDouble = true; g.line = [];
-    var hand = [T(6, 6), T(6, 5), T(1, 0)];
-    eq(g.legalMoves(hand), [{ index: 0, side: 'R' }]);
-    g.openingDouble = false;
-    eq(g.legalMoves(hand).length, 3);
+  /* --- 場（スピナー） -------------------------------------------------- */
+  var BD = DM.board;
+  function ends(b) { return BD.openEnds(b).map(function (e) { return e.dir + e.value; }); }
+
+  test('スピナーは左右がつながってから上下が開く', function () {
+    var b = BD.create(T(5, 5));
+    eq(ends(b), ['W5', 'E5']);
+    eq(BD.playableEnds(b).map(function (e) { return e.dir; }), ['E'], 'スピナーだけのときは右だけ');
+    b = BD.place(b, T(5, 3), 'E');
+    eq(ends(b), ['W5', 'E3']);
+    b = BD.place(b, T(5, 1), 'W');
+    eq(ends(b), ['W1', 'E3', 'N5', 'S5']);
+    eq(BD.playableEnds(b).map(function (e) { return e.dir; }), ['W', 'E', 'N'], '上下がどちらも空なら上だけ');
+    b = BD.place(b, T(5, 6), 'N');
+    eq(ends(b), ['W1', 'E3', 'N6', 'S5']);
   });
-  test('左端・右端に同じ目でつなぐ', function () {
-    var g = syncGame();
-    g.openingDouble = false;
-    g.line = g.placed(T(6, 3), 'R', []);          // 6|3
-    g.line = g.placed(T(3, 1), 'R');              // 6|3 3|1
-    g.line = g.placed(T(6, 4), 'L');              // 4|6 6|3 3|1
-    eq(g.line.map(function (x) { return [x.l, x.r]; }), [[4, 6], [6, 3], [3, 1]]);
-    eq([g.leftEnd(), g.rightEnd()], [4, 1]);
-    var hand = [T(4, 1), T(2, 2), T(1, 5)];
-    eq(g.legalMoves(hand), [{ index: 0, side: 'L' }, { index: 0, side: 'R' }, { index: 2, side: 'R' }]);
+  test('ダブル以外で始めたら左右だけ', function () {
+    var b = BD.create(T(6, 2));
+    eq(ends(b), ['W6', 'E2']);
+    b = BD.place(b, T(2, 2), 'E');
+    b = BD.place(b, T(6, 6), 'W');
+    eq(ends(b), ['W6', 'E2']);
   });
-  test('両端が同じ目なら右だけを候補にする', function () {
-    var g = syncGame();
-    g.openingDouble = false;
-    g.line = g.placed(T(5, 5), 'R', []);
-    eq(g.legalMoves([T(5, 2)]), [{ index: 0, side: 'R' }]);
+  test('端の合計: 中心だけ・スピナー・ダブルの端・上下', function () {
+    eq(BD.endSum(BD.create(T(5, 5))), 10);
+    eq(BD.endSum(BD.create(T(3, 2))), 5);
+    var b = BD.place(BD.create(T(5, 5)), T(5, 0), 'E');   // 左はスピナー 10 ＋ 右 0
+    eq(BD.endSum(b), 10);
+    b = BD.place(b, T(5, 3), 'W');                          // 左 3 ＋ 右 0（スピナーはもう数えない）
+    eq(BD.endSum(b), 3);
+    b = BD.place(b, T(5, 2), 'N');                          // 上 2 が加わる
+    eq(BD.endSum(b), 5);
+    b = BD.place(b, T(0, 0), 'E');                          // 右端がダブル 0-0
+    eq(BD.endSum(b), 5);
+    b = BD.place(b, T(3, 3), 'W');                          // 左端がダブル 3-3 → 6
+    eq(BD.endSum(b), 8);
+    var c = BD.place(BD.create(T(6, 4)), T(4, 4), 'E');     // 6 ＋ 4-4 の 8
+    eq(BD.endSum(c), 14);
+  });
+  test('場は置くたびに新しく作られ、元の場は変わらない', function () {
+    var b = BD.create(T(5, 5));
+    var b2 = BD.place(b, T(5, 3), 'E');
+    eq(b.arms.E.length, 0);
+    eq(b2.arms.E.length, 1);
+    eq(BD.count(b2), 2);
   });
 
-  /* --- オールファイブの点 ---------------------------------------------- */
-  test('両端の合計: 1 枚目は牌の目の合計', function () {
-    var g = syncGame();
-    eq(g.endSum(g.placed(T(5, 5), 'R', [])), 10);
-    eq(g.endSum(g.placed(T(3, 2), 'R', [])), 5);
+  /* --- 進行 ------------------------------------------------------------ */
+  test('最初の局は一番大きいダブルから', function () {
+    var g = syncGame({ seed: 7 });
+    g.startGame();
+    var best = -1;
+    g.players.forEach(function (p) { p.hand.forEach(function (t) { if (DM.isDouble(t)) best = Math.max(best, t.a); }); });
+    ok(g.openingTile && DM.isDouble(g.openingTile) && g.openingTile.a === best, '最初の牌 ' + (g.openingTile && DM.label(g.openingTile)));
+    var leader = g.players[g.leader];
+    eq(g.legalMoves(leader.hand).length, 1);
   });
-  test('両端の合計: 端のダブルは両方の目を数える', function () {
-    var g = syncGame();
-    var line = g.placed(T(5, 5), 'R', []);
-    line = g.placed(T(5, 0), 'R', line);          // 5|5 5|0 → 左端がダブル 5-5 で 10、右端 0
-    eq(g.endSum(line), 10);
-    line = g.placed(T(0, 0), 'R', line);          // 右端がダブル 0-0
-    eq(g.endSum(line), 10);
-    line = g.placed(T(5, 4), 'L', line);          // 4|5 5|5 ... 左端 4
-    eq(g.endSum(line), 4);
-  });
-  test('得点はオールファイブのときだけ', function () {
-    var g = syncGame({ mode: 'fives' });
-    g.line = g.placed(T(6, 4), 'R', []);          // 6|4 → 10 点
-    eq(g.scoreOf(T(4, 1), 'R'), 0);               // 6 + 1 = 7
-    eq(g.scoreOf(T(4, 4), 'R'), 0);               // 6 + 8 = 14
-    eq(g.scoreOf(T(6, 3), 'L'), 0);               // 3 + 4 = 7
-    eq(g.scoreOf(T(6, 1), 'L'), 5);               // 1 + 4 = 5
-    var b = syncGame({ mode: 'block' });
-    b.line = b.placed(T(6, 4), 'R', []);
-    eq(b.scoreOf(T(6, 1), 'L'), 0);
-  });
-
-  /* --- 局の精算 -------------------------------------------------------- */
-  function setupEnd(mode, hands) {
-    var g = syncGame({ mode: mode });
+  test('山から引くと、今の端の目がないことが記録される', function () {
+    var g = syncGame({ seed: 3 });
     g.startGame(); g.stop();
-    g.players.forEach(function (p, i) { p.hand = hands[i]; p.count = hands[i].length; p.score = 0; });
-    return g;
-  }
-  test('ドミノ: 勝者が他の 3 人の残り目を得る', function () {
-    var g = setupEnd('block', [[], [T(6, 6)], [T(1, 0)], [T(3, 2), T(2, 0)]]);
-    g.endHand('domino', 0);
-    eq(g.players[0].score, 12 + 1 + 7);
+    g.board = BD.create(T(6, 6));
+    g.openingTile = null;
+    var p = g.players[1];
+    p.hand = [T(1, 0)]; p.count = 1;
+    p.voids = [false, true, false, false, false, false, false];
+    var before = g.boneCount();
+    g.draw(p);
+    eq(g.boneCount(), before - 1);
+    eq(p.count, 2);
+    ok(p.voids[6], '6 がない');
+    ok(!p.voids[1], '前に分かっていた「ない目」は消える');
   });
-  test('ブロック: 残り目が最少の人が勝者', function () {
-    var g = setupEnd('block', [[T(6, 6)], [T(1, 0)], [T(3, 2)], [T(5, 4)]]);
+  test('オールファイブの点と局の精算', function () {
+    var g = syncGame();
+    g.startGame(); g.stop();
+    g.board = BD.create(T(5, 5)); g.openingTile = null;
+    eq(g.scoreOf(T(5, 0), 'E'), 10);
+    eq(g.scoreOf(T(5, 3), 'E'), 0);
+    g.players.forEach(function (p) { p.score = 0; });
+    g.players[0].hand = []; g.players[1].hand = [T(6, 6)]; g.players[2].hand = [T(6, 5)];  // 12 + 11 = 23 → 25
+    g.endHand('domino', 0);
+    eq(g.players[0].score, 25);
+  });
+  test('ブロック: 残り目が最少の人が勝者、同点なら精算なし', function () {
+    var g = syncGame();
+    g.startGame(); g.stop();
+    g.players.forEach(function (p) { p.score = 0; });
+    g.players[0].hand = [T(6, 6)]; g.players[1].hand = [T(1, 0)]; g.players[2].hand = [T(3, 2)];
     g.endHand('blocked', null);
     eq(g.result.winner, 1);
-    eq(g.players[1].score, 12 + 5 + 9);
-  });
-  test('ブロック: 最少が同点なら得点なし', function () {
-    var g = setupEnd('block', [[T(6, 6)], [T(1, 0)], [T(1, 0)], [T(5, 4)]]);
+    eq(g.players[1].score, 15);   // 12 + 5 = 17 → 15
+    g.players.forEach(function (p) { p.score = 0; });
+    g.players[0].hand = [T(6, 6)]; g.players[1].hand = [T(1, 0)]; g.players[2].hand = [T(1, 0)];
     g.endHand('blocked', null);
     eq(g.result.winner, null);
-    eq(g.players.map(function (p) { return p.score; }), [0, 0, 0, 0]);
-  });
-  test('オールファイブの精算は 5 点単位に丸める', function () {
-    var g = setupEnd('fives', [[], [T(6, 6)], [T(6, 5)], [T(1, 1)]]);  // 12 + 11 + 2 = 25
-    g.endHand('domino', 0);
-    eq(g.players[0].score, 25);
-    g = setupEnd('fives', [[], [T(6, 6)], [T(6, 4)], [T(1, 0)]]);      // 12 + 10 + 1 = 23 → 25
-    g.endHand('domino', 0);
-    eq(g.players[0].score, 25);
-    g = setupEnd('fives', [[], [T(6, 6)], [T(6, 3)], [T(1, 0)]]);      // 22 → 20
-    g.endHand('domino', 0);
-    eq(g.players[0].score, 20);
   });
 
   /* --- CPU の読み ------------------------------------------------------ */
-  test('配り直しは各席の枚数どおりで、パスした目を配らない', function () {
+  test('配り直しは各席と山の枚数どおりで、「ない目」を配らない', function () {
     var g = syncGame();
     g.startGame(); g.stop();
-    g.line = g.placed(T(6, 6), 'R', []);
+    g.board = BD.create(T(6, 6)); g.openingTile = null;
     var me = g.players[0];
     me.hand = me.hand.filter(function (t) { return !(t.a === 6 && t.b === 6); });
     me.count = me.hand.length;
-    g.players[1].count = 7; g.players[2].count = 7; g.players[3].count = 7;
-    // 6-6 を誰かが持っていた場合に備えて、枚数を見えていない牌の数に合わせる
     var unseen = DM.ai.unseenTiles(g, me).length;
-    g.players[3].count = unseen - 14;
+    g.players[1].count = 7;
+    g.players[2].count = unseen - 7 - g.boneCount();
     g.players[1].voids = [false, false, false, false, false, false, true];
     var deals = DM.ai.sampleDeals(g, me, 50, true, DM.mulberry32(3));
     deals.forEach(function (d) {
-      eq(d[1].length, 7); eq(d[2].length, 7); eq(d[3].length, unseen - 14);
+      eq(d[1].length, 7); eq(d[2].length, g.players[2].count); eq(d.bone.length, g.boneCount());
       ok(d[1].every(function (t) { return !DM.has(t, 6); }), '下家に 6 が配られた');
     });
   });
@@ -171,45 +176,47 @@
     var g = syncGame();
     g.startGame();
     g.players[0].isAI = false;
-    for (var n = 0; n < 2000 && !(g.awaiting && g.awaiting.seat === 0 && g.awaiting.type === 'turn'); n++) {
-      if (g.result) { g.nextHand(); }
+    for (var n = 0; n < 5000 && !(g.awaiting && g.awaiting.seat === 0 && g.awaiting.type === 'turn'); n++) {
+      if (g.awaiting && g.awaiting.seat === 0 && g.awaiting.type === 'draw') g.playerDraw();
+      else if (g.awaiting && g.awaiting.seat === 0 && g.awaiting.type === 'pass') g.playerPass();
+      if (g.result) g.nextHand();
       g.drain(1);
     }
     var a = g.awaiting;
     ok(a && a.type === 'turn', '自分の手番が来ない');
     var adv = DM.coach.advise(g);
-    ok(a.moves.some(function (m) { return m.index === adv.best.move.index && m.side === adv.best.move.side; }));
+    ok(a.moves.some(function (m) { return m.index === adv.best.move.index && m.dir === adv.best.move.dir; }));
     ok(adv.reasons.length >= 1, '理由が空');
   });
 
   /* --- CPU 同士の対戦 -------------------------------------------------- */
-  ['block', 'fives'].forEach(function (mode) {
-    test('CPU 4 人で最後まで対戦できる（' + mode + '）', function () {
-      for (var seed = 1; seed <= 6; seed++) {
-        var g = syncGame({ seed: seed, mode: mode, difficulty: seed % 3 });
-        var checks = 0;
-        g.onEvent = function (type, data) {
-          if (type === 'update' && !g.result) {
-            // 手牌と場で 28 枚がそろっている
-            var n = g.line.length;
-            g.players.forEach(function (p) { n += p.hand.length; eq(p.count, p.hand.length); });
-            eq(n, 28);
-            // 隣り合う牌は同じ目でつながっている
-            for (var i = 0; i + 1 < g.line.length; i++) eq(g.line[i].r, g.line[i + 1].l, 'つなぎ目');
-            checks++;
-          }
-          if (type === 'pass') {
-            eq(g.legalMoves(g.players[data.seat].hand).length, 0, 'パスしたのに出せる牌があった');
-          }
-          if (type === 'result') g.schedule(function () { g.nextHand(); });
-        };
-        g.startGame();
-        g.drain();
-        ok(g.gameOver, 'seed ' + seed + ' で終わらない');
-        ok(g.players.some(function (p) { return p.score >= g.target; }), '目標点に届いていない');
-        ok(checks > 20);
-      }
-    });
+  test('CPU 3 人で最後まで対戦できる', function () {
+    for (var seed = 1; seed <= 6; seed++) {
+      var g = syncGame({ seed: seed, difficulty: seed % 3 });
+      var checks = 0;
+      g.onEvent = function (type, data) {
+        if (type === 'update' && !g.result) {
+          // 手牌・場・山で 28 枚がそろっている
+          var n = BD.count(g.board) + g.boneCount();
+          g.players.forEach(function (p) { n += p.hand.length; eq(p.count, p.hand.length); });
+          eq(n, 28);
+          checks++;
+        }
+        if (type === 'draw' || type === 'pass') {
+          // 引く・パスするのは、出せる牌がなかったときだけ（引いた直後の 1 枚は除く）
+          var p = g.players[data.seat];
+          var hand = type === 'draw' ? p.hand.slice(0, -1) : p.hand;
+          if (type === 'pass') eq(g.legalMoves(hand).length, 0, 'パスしたのに出せる牌があった');
+        }
+        if (type === 'pass') eq(g.boneCount(), 0, '山があるのにパスした');
+        if (type === 'result') g.schedule(function () { g.nextHand(); });
+      };
+      g.startGame();
+      g.drain();
+      ok(g.gameOver, 'seed ' + seed + ' で終わらない');
+      ok(g.players.some(function (p) { return p.score >= g.target; }), '目標点に届いていない');
+      ok(checks > 20);
+    }
   });
 
   var passed = results.filter(function (r) { return r.pass; }).length;

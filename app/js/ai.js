@@ -6,21 +6,21 @@
  *   キャラクター ... 7 つの評価項目への重み
  *   難易度       ... パスから相手の手をどこまで読むか、どれくらい最善手を外すか
  *
- * 1 手ごとに、出せる手（牌 × 左右）それぞれを次の式で評価する。
+ * 1 手ごとに、出せる手（牌 × 端）それぞれを次の式で評価する。
  *
  *   評価 = 重さ     * 出す牌の目の合計（重い牌を先に処理して、負けたときの失点を減らす）
  *        + ダブル   * ダブルかどうか（ダブルは出せる場面が少ないので早めに出す）
- *        + 温存     * 他の 3 人が 1 巡したあと、自分がまた出せる確率・手元の目の種類
- *        + 支配     * 両端の目を自分がどれだけ握っているか
+ *        + 温存     * 他の 2 人が 1 巡したあと、自分がまた出せる確率・手元の目の種類
+ *        + 支配     * 端の目を自分がどれだけ握っているか
  *        + 封鎖     * 相手が次に出せなくなる確率（パスの記録から読む）
- *        + 得点     * この手で取れる点（オールファイブ）
- *        - 献上     * 次の人に取られそうな点（オールファイブ）
+ *        + 得点     * この手で取れる点（端の合計が 5 の倍数）
+ *        - 献上     * 次の人に取られそうな点
  *
- * 「相手が出せなくなる確率」は、見えていない牌を相手に配り直すモンテカルロ法で見積もる。
- * 配り直すときに、パスで分かった「持っていない目」を条件に入れるかどうかが腕前の差になる。
+ * 「相手が出せなくなる確率」などは、見えていない牌を相手と山に配り直すモンテカルロ法で見積もる。
+ * 配り直すときに、パスや山引きで分かった「持っていない目」を条件に入れるかどうかが腕前の差になる。
  *
- * CPU が見るのは、自分の手牌と、場の並び・各席の手牌の枚数・パスの記録だけ。
- * 他の席の手牌（hand）には触らない（tests/audit.js で検証）。
+ * CPU が見るのは、自分の手牌と、場・各席の手牌の枚数・山の枚数・パスと山引きの記録だけ。
+ * 他の席の手牌（hand）と山の中身（bone）には触らない（tests/audit.js で検証）。
  */
 (function (global) {
   'use strict';
@@ -44,7 +44,7 @@
     },
     {
       id: 'fumi', name: 'フミ', tag: '攻',
-      w: { heavy: 0.6, dbl: 0.8, keep: 0.6, ctl: 4.0, block: 0.8, score: 1.5, danger: 0.6 },
+      w: { heavy: 0.6, dbl: 0.8, keep: 1.0, ctl: 7.0, block: 0.8, score: 2.0, danger: 0.4 },
       desc: '大柄な茶髪のギャル。自分が多く持つ目で場を押さえ、ごり押しで出し切る力の打ち手',
       talk: {
         domino: ['よっしゃー！ 出し切り〜！', 'てかウチ、天才じゃね？', '場、ぜんぶウチの目にしといたし！'],
@@ -56,7 +56,7 @@
     {
       id: 'maki', name: 'マキ', tag: '点',
       w: { heavy: 1.2, dbl: 2.0, keep: 0.8, ctl: 0.8, block: 0.8, score: 5.0, danger: 0.2 },
-      desc: 'ソフトボール部のエース。オールファイブでは 5 の倍数を狙い打ち、取られる点は気にしない',
+      desc: 'ソフトボール部のエース。端の合計が 5 の倍数になる手を狙い打ち、取られる点は気にしない',
       talk: {
         domino: ['ナイスピッチ！ 投げ切った！', 'エースの決め球、見た？', '狙ったところに、ずばっと！'],
         blocked: ['守り勝ち！ 試合は最後までわかんないね。', 'ピンチをしのげば、勝ちは来る！'],
@@ -67,7 +67,7 @@
     {
       id: 'chika', name: 'チカ', tag: '柔',
       w: { heavy: 0.5, dbl: 0.6, keep: 5.0, ctl: 0.4, block: 0.5, score: 0.8, danger: 0.8 },
-      desc: '商店街の魚屋の娘。手元の目を散らさず、どんな場でもうら道を見つけて出し続ける',
+      desc: '商店街の魚屋の娘。手元の目を散らさず、山から引かずに出し続ける',
       talk: {
         domino: ['へへっ、うら道から抜けちゃった！', 'まいどあり〜！', '身軽なのが、あたしの取り柄！'],
         blocked: ['行き止まりでも、あたしは身軽だからね。', '手元が軽いと、止まっても強いんだ。'],
@@ -89,7 +89,7 @@
     {
       id: 'queen', name: 'イカ女王', tag: '封',
       w: { heavy: 0.6, dbl: 0.8, keep: 0.6, ctl: 0.8, block: 6.0, score: 0.8, danger: 2.0 },
-      desc: '海の向こうの女王。相手がパスした目を端に残し、白い壁のように道をふさぐ',
+      desc: '海の向こうの女王。相手が持っていない目を端に残し、白い壁のように道をふさいで山を引かせる',
       talk: {
         domino: ['ごきげんよう。通れる道は、ございませんわ。', '壁を作るのは、わたくしの得意分野ですの。'],
         blocked: ['ほら、みなさま行き止まり。わたくしの勝ちですわ。', 'ふさいだのは、わたくし。勝ったのも、わたくし。'],
@@ -101,15 +101,15 @@
 
   /* --- 難易度（腕前） -------------------------------------------------- */
   var LEVELS = [
-    // readVoids : パスで分かった「持っていない目」を読みに使うか
-    // samples   : 相手の手を配り直す回数
+    // readVoids : パスや山引きで分かった「持っていない目」を読みに使うか
+    // samples   : 相手の手と山を配り直す回数
     // slip/slipTop: この確率で最善手ではなく 2〜slipTop 番手を選ぶ
     { name: 'やさしい', readVoids: false, samples: 40, slip: 0.45, slipTop: 3 },
     { name: 'ふつう', readVoids: true, samples: 120, slip: 0.20, slipTop: 2 },
     { name: 'つよい', readVoids: true, samples: 300, slip: 0, slipTop: 1 }
   ];
 
-  var OPP_WEIGHT = [0, 0.6, 0.25, 0.15];   // 下家・対面・上家の順に、次の手番に近いほど重く見る
+  var OPP_WEIGHT = [0, 0.7, 0.3];   // 下家・上家の順に、次の手番に近いほど重く見る
 
   function levelOf(game, me) {
     var d = me && me.difficulty != null ? me.difficulty : game.difficulty;
@@ -123,25 +123,26 @@
 
   function rand(game) { return (game.rng || Math.random)(); }
 
-  /* --- 見えていない牌と、相手の手の配り直し ----------------------------- */
+  /* --- 見えていない牌と、相手の手・山の配り直し ------------------------- */
 
-  /** 自分の手牌にも場にもない牌（＝他の 3 人のどこかにある牌） */
+  /** 自分の手牌にも場にもない牌（＝他の 2 人の手か山のどこかにある牌） */
   function unseenTiles(game, me) {
     var seen = {};
     me.hand.forEach(function (t) { seen[t.id] = true; });
-    game.line.forEach(function (x) { seen[x.tile.id] = true; });
+    DM.board.tiles(game.board).forEach(function (t) { seen[t.id] = true; });
     return DM.TILES.filter(function (t) { return !seen[t.id]; });
   }
 
   /**
-   * 見えていない牌を、各席の枚数どおりに配り直した例を n 通り作る。
-   * readVoids なら、パスで「持っていない」と分かった目の牌はその席に配らない。
-   * 返り値: [{ seat: [tiles] }, ...]（自分の席は含まない）
+   * 見えていない牌を、各席の枚数と山の枚数どおりに配り直した例を n 通り作る。
+   * readVoids なら、「持っていない」と分かった目の牌はその席に配らない（山には制約なし）。
+   * 返り値: [{ seat: [tiles], bone: [tiles] }, ...]（自分の席は含まない）
    */
   function sampleDeals(game, me, n, readVoids, rng) {
     var pool = unseenTiles(game, me);
     var opps = game.players.filter(function (p) { return p.seat !== me.seat; })
       .map(function (p) { return { seat: p.seat, count: p.count, voids: p.voids.slice() }; });
+    opps.push({ seat: 'bone', count: game.boneCount(), voids: [] });
     var out = [];
 
     function allowed(o, t) {
@@ -150,7 +151,6 @@
 
     function tryDeal(useVoids) {
       var tiles = DM.shuffle(pool.slice(), rng);
-      // 置き場所の少ない牌から配ると行き詰まりにくい
       if (useVoids) {
         var places = {};
         tiles.forEach(function (t) {
@@ -187,35 +187,41 @@
 
   /* --- 評価 ------------------------------------------------------------ */
 
-  function canFollow(hand, L, R) {
-    return hand.some(function (t) { return DM.has(t, L) || DM.has(t, R); });
+  function endValues(board) {
+    return DM.board.playableEnds(board).map(function (e) { return e.value; });
+  }
+
+  function canFollow(hand, values) {
+    return hand.some(function (t) { return values.indexOf(t.a) >= 0 || values.indexOf(t.b) >= 0; });
   }
 
   /**
-   * 配り直した相手の手 deal で、他の 3 人が 1 回ずつ（出せる牌を適当に）つないだあと、
-   * 自分の番に rest から出せるかどうか。
+   * 配り直した相手の手 deal で、他の 2 人が 1 回ずつ（出せる牌を適当に）つないだあと、
+   * 自分の番に rest から出せるかどうか（出せない人は山から引いたことにして飛ばす）。
    */
-  function canFollowLater(seat, deal, L, R, rest, rng) {
-    for (var k = 1; k <= 3; k++) {
-      var hand = deal[(seat + k) % 4];
-      var ok = hand.filter(function (t) { return DM.has(t, L) || DM.has(t, R); });
-      if (!ok.length) continue;
-      var t = ok[Math.floor(rng() * ok.length)];
-      var toL = DM.has(t, L) && (!DM.has(t, R) || rng() < 0.5);
-      if (toL) L = DM.other(t, L); else R = DM.other(t, R);
+  function canFollowLater(game, seat, deal, board, rest, rng) {
+    for (var k = 1; k <= 2; k++) {
+      var hand = deal[(seat + k) % 3];
+      var ends = DM.board.playableEnds(board);
+      var opts = [];
+      hand.forEach(function (t) {
+        ends.forEach(function (e) { if (DM.has(t, e.value)) opts.push({ t: t, dir: e.dir }); });
+      });
+      if (!opts.length) continue;
+      var o = opts[Math.floor(rng() * opts.length)];
+      board = DM.board.place(board, o.t, o.dir);
     }
-    return canFollow(rest, L, R);
+    return canFollow(rest, endValues(board));
   }
 
-  /** 1 手ぶんの点数（オールファイブ）を、仮の場 line に対して計算する */
-  function bestScoreOn(game, line, hand) {
-    var L = line[0].l, R = line[line.length - 1].r;
+  /** 仮の場 board に対して、hand で取れる最高点（オールファイブ） */
+  function bestScoreOn(board, hand) {
     var best = 0;
+    var ends = DM.board.playableEnds(board);
     hand.forEach(function (t) {
-      ['L', 'R'].forEach(function (side) {
-        var e = side === 'L' ? L : R;
-        if (!DM.has(t, e)) return;
-        var s = game.endSum(game.placed(t, side, line));
+      ends.forEach(function (e) {
+        if (!DM.has(t, e.value)) return;
+        var s = DM.board.endSum(DM.board.place(board, t, e.dir));
         if (s > 0 && s % 5 === 0 && s > best) best = s;
       });
     });
@@ -224,8 +230,8 @@
 
   /**
    * 出せる手それぞれの評価項目を計算する。
-   * 返り値: [{ move, tile, rest, ends: [L, R], f: { heavy, dbl, keep, ctl, block, score, danger },
-   *            oppBlock: { seat: 確率 }, points }]
+   * 返り値: [{ move, tile, rest, board, ends: [目...], f: { heavy, dbl, keep, ctl, block, score, danger },
+   *            oppBlock: { seat: 確率 }, follow, dangerPts, points }]
    */
   function analyze(game, me, moves, level, rng) {
     var deals = sampleDeals(game, me, level.samples, level.readVoids, rng);
@@ -233,45 +239,45 @@
 
     return moves.map(function (m) {
       var tile = me.hand[m.index];
-      var line = game.placed(tile, m.side);
-      var L = line[0].l, R = line[line.length - 1].r;
+      var board = game.placed(tile, m.dir);
+      var ends = endValues(board);
       var rest = me.hand.filter(function (_, i) { return i !== m.index; });
-      var points = game.scoreOf(tile, m.side);
+      var points = game.scoreOf(tile, m.dir);
 
       // 温存: 手元の目の種類（どこに何が来ても出せるように）
       var kinds = {};
       rest.forEach(function (t) { kinds[t.a] = 1; kinds[t.b] = 1; });
 
       // 支配: 端の目の残り牌を、自分がどれだけ握っているか
-      function share(e) {
+      var uniq = ends.filter(function (v, i) { return ends.indexOf(v) === i; });
+      var ctl = uniq.reduce(function (sum, e) {
         var mine = rest.filter(function (t) { return DM.has(t, e); }).length;
         var other = unseen.filter(function (t) { return DM.has(t, e); }).length;
-        return mine / (mine + other + 0.5);
-      }
-      var ctl = (share(L) + share(R)) / 2;
+        return sum + mine / (mine + other + 0.5);
+      }, 0) / Math.max(1, uniq.length);
 
-      // 封鎖・献上: 配り直した相手の手で、次に出せるか・何点取れるか
+      // 封鎖・献上・温存: 配り直した相手の手で数える
       var oppBlock = {}, danger = 0, follow = 0;
-      var next = (me.seat + 1) % 4;
+      var next = (me.seat + 1) % 3;
       game.players.forEach(function (p) { if (p.seat !== me.seat) oppBlock[p.seat] = 0; });
       deals.forEach(function (d) {
-        Object.keys(d).forEach(function (seat) {
-          if (!canFollow(d[seat], L, R)) oppBlock[seat]++;
+        Object.keys(oppBlock).forEach(function (seat) {
+          if (!canFollow(d[seat], ends)) oppBlock[seat]++;
         });
-        if (game.mode === 'fives') danger += bestScoreOn(game, line, d[next]);
-        if (rest.length && canFollowLater(me.seat, d, L, R, rest, rng)) follow++;
+        danger += bestScoreOn(board, d[next]);
+        if (rest.length && canFollowLater(game, me.seat, d, board, rest, rng)) follow++;
       });
-      follow = rest.length ? follow / deals.length : 1;
-      var keep = 0.7 * follow + 0.3 * Object.keys(kinds).length / 7;
       var block = 0;
       Object.keys(oppBlock).forEach(function (seat) {
         oppBlock[seat] /= deals.length;
-        block += OPP_WEIGHT[(seat - me.seat + 4) % 4] * oppBlock[seat];
+        block += OPP_WEIGHT[(seat - me.seat + 3) % 3] * oppBlock[seat];
       });
       danger /= deals.length;
+      follow = rest.length ? follow / deals.length : 1;
+      var keep = 0.7 * follow + 0.3 * Object.keys(kinds).length / 7;
 
       return {
-        move: m, tile: tile, rest: rest, ends: [L, R], points: points,
+        move: m, tile: tile, rest: rest, board: board, ends: ends, points: points,
         oppBlock: oppBlock, dangerPts: danger, follow: follow,
         f: {
           heavy: DM.pips(tile) / 12,

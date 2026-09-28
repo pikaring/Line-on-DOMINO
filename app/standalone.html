@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Line on DOMINO － ドミノ</title>
-<meta name="description" content="ブラウザだけで遊べる軽量な4人ドミノ。猫街三部作の6人から選ばれるCPU。インストール不要・オフライン動作。">
+<meta name="description" content="ブラウザだけで遊べる軽量な3人ドミノ（オールファイブ）。猫街三部作の6人から選ばれるCPU。インストール不要・オフライン動作。">
 <style>
 /*
  * style.css
@@ -13,7 +13,7 @@
  * 場の牌が増えても他の要素がずれないよう、各段の高さを内容ではなく
  * 牌の寸法から決めている。場の並びは箱の大きさを固定し、その中で JS が牌の寸法を決める。
  *
- *   上から  操作ボタン / 局情報 / 他の 3 人（1 人 1 段）/ 場 / ヒント /
+ *   上から  操作ボタン / 局情報 / 他の 2 人（1 人 1 段）/ 場 / ヒント /
  *           自分の手牌 / コマンド / ログ（余白を吸収。新しい行が上）
  *
  * ログを最下段に置くのは、iPhone の Safari で画面下のツールバーが盤面に重なっても、
@@ -41,7 +41,7 @@
   /* 他の 3 人の伏せ牌 */
   --opp-u: 11px;
   /* 場の箱の高さ（中の牌の寸法は JS がこの箱に収まるように決める） */
-  --line-h: 176px;
+  --line-h: 220px;
 }
 
 * { box-sizing: border-box; }
@@ -179,6 +179,7 @@ html, body {
 .seat-head .tag { background: rgba(255, 255, 255, .18); border-radius: 3px; padding: 0 4px; font-size: 10px; }
 .seat-head .lead { background: var(--accent); color: #2b2205; border-radius: 3px; padding: 0 4px; font-size: 10px; font-weight: 700; }
 .seat-head .pass-mark { color: var(--danger); font-weight: 700; }
+.seat-head .drew { background: rgba(255, 255, 255, .16); border-radius: 999px; padding: 0 6px; font-size: 11px; }
 .seat-head .void { background: rgba(226, 86, 74, .22); border-radius: 999px; padding: 0 6px; font-size: 11px; }
 .seat .backs { margin-left: auto; display: flex; gap: 2px; align-items: center; flex: none; }
 
@@ -197,9 +198,11 @@ html, body {
   font-size: 12.5px; opacity: .6;
 }
 .line-box .dom { position: absolute; }
-.line-box .end-l::after, .line-box .end-r::after {
+.line-box .end { outline: 2px solid var(--accent); outline-offset: 0; }
+.line-box [data-label]::after {
+  content: attr(data-label);
   position: absolute;
-  top: -1px;
+  top: -2px; left: -2px;
   font-size: 9px;
   line-height: 1;
   padding: 1px 3px;
@@ -207,10 +210,22 @@ html, body {
   background: var(--accent);
   color: #2b2205;
   font-weight: 700;
+  z-index: 1;
 }
-.line-box .end-l::after { content: '左'; left: -1px; }
-.line-box .end-r::after { content: '右'; right: -1px; }
-.line-box .end-l, .line-box .end-r { outline: 2px solid var(--accent); outline-offset: 0; }
+.line-box .slot {
+  position: absolute;
+  border: 1.5px dashed rgba(242, 193, 78, .7);
+  border-radius: 4px;
+}
+.line-box .more {
+  position: absolute;
+  width: 22px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  background: rgba(255, 255, 255, .14);
+  border-radius: 9px;
+}
+.line-box .spinner { box-shadow: 0 0 0 2px rgba(242, 193, 78, .35); }
 .line-box .last { box-shadow: 0 0 0 3px rgba(242, 193, 78, .45), 0 2px 6px rgba(0, 0, 0, .4); }
 
 /* ---- ヒント ---- */
@@ -469,11 +484,11 @@ html, body {
 
 /* 縦に余裕がない端末では段を詰めて、1 画面に収める */
 @media (max-height: 800px) {
-  :root { --line-h: 150px; --hand-u: min(30px, calc((var(--app-w) - 80px) / 7)); }
+  :root { --line-h: 196px; }
   .coach { height: 84px; font-size: 11.5px; line-height: 1.45; }
 }
 @media (max-height: 700px) {
-  :root { --line-h: 124px; --hand-u: min(26px, calc((var(--app-w) - 80px) / 7)); --opp-u: 10px; }
+  :root { --line-h: 170px; --opp-u: 10px; }
   .log { font-size: 11px; }
   .coach { height: 52px; }
 }
@@ -493,7 +508,6 @@ html, body {
     <button class="btn" data-act="difficulty">敵:ふつう</button>
     <button class="btn" data-act="hint">ヒント</button>
     <button class="btn" data-act="speed">速度:普</button>
-    <button class="btn" data-act="mode">ブロック</button>
     <button class="btn" data-act="new-game">新規</button>
     <button class="btn" data-act="rules">ルール</button>
   </div>
@@ -516,28 +530,33 @@ html, body {
     <h2>ルール</h2>
     <div class="detail">
       <b>基本</b><br>
-      ・0〜6 の目のドミノ 28 枚を、4 人に 7 枚ずつ配ります（山は残りません）。<br>
-      ・最初の局は <b>6-6 を持っている人が 6-6 から</b>始めます。2 局目からは前の局の勝者が、好きな牌で始めます。<br>
-      ・手番では、場の<b>左端か右端に、同じ目でつなぎます</b>。<br>
-      ・出せる牌があれば必ず出します。出せなければパス。<br>
+      ・0〜6 の目のドミノ 28 枚から、<b>3 人に 7 枚ずつ</b>配ります。残り 7 枚が<b>山</b>です。<br>
+      ・最初の局は、<b>一番大きいダブルを持っている人がそのダブルから</b>始めます。2 局目からは前の局の勝者が、好きな牌で始めます。<br>
+      ・最初の牌がダブルなら<b>スピナー</b>です。左右に 1 枚ずつつながると、<b>上下にものばせます</b>（端が最大 4 つ）。<br>
+      ・手番では、どれかの端に同じ目でつなぎます。出せる牌があれば必ず出します。<br>
+      ・出せなければ、<b>出せる牌が来るまで山から引きます</b>。山が空ならパス。<br>
       ・手牌を出し切った人が勝者（<b>ドミノ</b>）です。<br>
-      ・4 人続けてパスしたら行き詰まり（<b>ブロック</b>）。残った目の合計が一番少ない人が勝者です。最少が同点なら、その局は誰も得点しません。
+      ・山が空で 3 人続けてパスしたら行き詰まり（<b>ブロック</b>）。残った目の合計が一番少ない人が勝者です。最少が同点なら精算なし。
       <div class="divider"></div>
-      <b>得点方式（上の「ブロック／オール5」で切り替え）</b><br>
-      ・<b>ブロック</b>：勝者が、他の 3 人の残り目の合計を得点します。100 点先取。<br>
-      ・<b>オールファイブ</b>：上の得点に加えて、つないだ直後の<b>両端の目の合計が 5 の倍数なら、その数が得点</b>になります。端の牌がダブルなら、その端は両方の目を数えます（例：左端が 5-5 で右端が 5 なら 15 点）。局の終わりの得点は 5 点単位に丸めます。200 点先取。<br>
-      ・誰かが目標点に届いたら、その局の精算で対戦終了。一番点の高い人が勝ちです。
+      <b>得点（オールファイブ）</b><br>
+      ・つないだ直後に<b>端の目の合計が 5 の倍数なら、その数が得点</b>です。<br>
+      ・端の牌がダブルなら、その端は両方の目を数えます。スピナーは、左右のどちらかがまだ空いているあいだ、両方の目で数えます。上下は 1 枚つながるまで数えません。<br>
+      ・例：スピナー 5-5 の右に 5-0 → 左が 10（スピナー）＋ 右が 0 ＝ 10 点。<br>
+      ・局の勝者は、他の 2 人の残り目の合計を 5 点単位に丸めて得点します。<br>
+      ・<b>250 点先取</b>。誰かが届いたら、その局の精算で対戦終了。一番点の高い人が勝ちです。
       <div class="divider"></div>
       <b>対戦相手</b><br>
-      猫街三部作の 6 人から 3 人が卓に着きます。打ち筋はひとりずつ違います。「新規」で、あなたのキャラと対戦相手を選べます（選ばなかった席はおまかせ）。
+      猫街三部作の 6 人から 2 人が卓に着きます。打ち筋はひとりずつ違います。「新規」で、あなたのキャラと対戦相手を選べます（選ばなかった席はおまかせ）。
       <div id="char-list"></div>
       <div class="divider"></div>
       <b>操作</b><br>
       ・自分の番は、手牌をタップして場につなぎます。出せない牌は暗くなります。<br>
-      ・左右どちらにもつなげる牌は、タップしたあと「左端へ／右端へ」を選びます。<br>
-      ・場の金枠が両端です。「左」「右」の札が付いた牌の外側の目につなぎます。<br>
-      ・「ヒント」を ON にすると、おすすめの手と理由、各 CPU が<b>持っていないと分かっている目</b>（パスした時点の両端の目）、目ごとの見えていない牌の数を表示します。<br>
-      ・「敵」で CPU の腕前を やさしい／ふつう／つよい から選べます。やさしいにすると、ヒントも自動で ON になります。打ち筋（上のキャラクター）が「どう打ちたいか」、腕前が「それをどれだけ正確に実行できるか」です。<br>CPU は自分の手牌と、場・各席の枚数・パスの記録しか見ていません（他の人の手牌は見ません）。
+      ・いくつかの端につなげる牌は、タップしたあと「◀左／右▶／▲上／▼下」を選びます。ボタンにはその端の目と、取れる点が出ます。<br>
+      ・場の金枠と「左」「右」「上」「下」の札が端です。点線の枠は、まだ何もつながっていない端です。<br>
+      ・腕が長くなると、中心側の牌を「+3」のように畳んで、端に近い牌だけを見せます。<br>
+      ・出せる牌がないときは「山から引く」を押します。<br>
+      ・「ヒント」を ON にすると、おすすめの手と理由、各 CPU が<b>持っていないと分かっている目</b>（引いたりパスしたりした時点の端の目）、目ごとの見えていない牌の数を表示します。<br>
+      ・「敵」で CPU の腕前を やさしい／ふつう／つよい から選べます。やさしいにすると、ヒントも自動で ON になります。打ち筋（上のキャラクター）が「どう打ちたいか」、腕前が「それをどれだけ正確に実行できるか」です。<br>CPU は自分の手牌と、場・各席の枚数・山の枚数・パスと山引きの記録しか見ていません（他の人の手牌や山の中身は見ません）。
     </div>
     <div style="margin-top:12px;text-align:right">
       <button class="btn primary" data-act="close-rules">閉じる</button>
@@ -618,6 +637,115 @@ html, body {
 </script>
 <script>
 /*
+ * board.js - 場（スピナー付き）の表現と、端・得点の計算
+ *
+ * 場は「中心の牌」と、そこから 4 方向（W 左・E 右・N 上・S 下）にのびる腕で表す。
+ *   { center: tile, spin: 中心がダブルか, arms: { W: [piece], E: [...], N: [...], S: [...] } }
+ *   piece = { tile, inner: 中心側の目, outer: 外側の目 }
+ *
+ * 中心がダブル（スピナー）なら 4 方向に、そうでなければ左右の 2 方向にだけのびる。
+ * 上下は、左右の両方に 1 枚ずつつながってから開く。
+ *
+ * どの関数も場を書き換えず、新しい場を返す（CPU の読みやヒントでも使うため）。
+ */
+(function (global) {
+  'use strict';
+
+  var DM = global.DM;
+  var DIRS = ['W', 'E', 'N', 'S'];
+  var DIR_JA = { W: '左', E: '右', N: '上', S: '下' };
+
+  function create(tile) {
+    return { center: tile, spin: DM.isDouble(tile), arms: { W: [], E: [], N: [], S: [] } };
+  }
+
+  /** 中心の牌の、その方向の目（左は大きい方、右は小さい方） */
+  function centerValue(b, dir) {
+    return dir === 'E' ? b.center.a : b.center.b;
+  }
+
+  /** 開いている端 [{ dir, value }] */
+  function openEnds(b) {
+    if (!b) return [];
+    var out = [];
+    var dirs = b.spin && b.arms.W.length && b.arms.E.length ? DIRS : ['W', 'E'];
+    dirs.forEach(function (d) {
+      var arm = b.arms[d];
+      out.push({ dir: d, value: arm.length ? arm[arm.length - 1].outer : centerValue(b, d) });
+    });
+    return out;
+  }
+
+  /**
+   * 置ける端。見た目は違っても局面が同じになる端は 1 つにまとめる
+   * （スピナーだけのときの左右、どちらも空の上下）。
+   */
+  function playableEnds(b) {
+    var ends = openEnds(b);
+    return ends.filter(function (e) {
+      if (!b.spin) return true;
+      if (e.dir === 'W' && !b.arms.W.length && !b.arms.E.length) return false;
+      if (e.dir === 'S' && !b.arms.S.length && !b.arms.N.length) return false;
+      return true;
+    });
+  }
+
+  function place(b, tile, dir) {
+    if (!b) return create(tile);
+    var arms = { W: b.arms.W.slice(), E: b.arms.E.slice(), N: b.arms.N.slice(), S: b.arms.S.slice() };
+    var arm = arms[dir];
+    var v = arm.length ? arm[arm.length - 1].outer : centerValue(b, dir);
+    arm.push({ tile: tile, inner: v, outer: DM.other(tile, v) });
+    return { center: b.center, spin: b.spin, arms: arms };
+  }
+
+  /**
+   * 両端（最大 4 つ）の目の合計。オールファイブの得点判定に使う。
+   *   - 中心だけのときは牌の目の合計
+   *   - 腕の先がダブルならその端は 2 倍
+   *   - 左右がまだ空なら中心の目を数える（スピナーなら 2 倍）。上下は 1 枚つながるまで数えない
+   */
+  function endSum(b) {
+    if (!b) return 0;
+    var a = b.arms;
+    if (!a.W.length && !a.E.length) return DM.pips(b.center);
+    var sum = 0;
+    DIRS.forEach(function (d) {
+      var arm = a[d];
+      if (arm.length) {
+        var last = arm[arm.length - 1];
+        sum += DM.isDouble(last.tile) ? last.outer * 2 : last.outer;
+      } else if (d === 'W' || d === 'E') {
+        sum += centerValue(b, d) * (b.spin ? 2 : 1);
+      }
+    });
+    return sum;
+  }
+
+  function tiles(b) {
+    if (!b) return [];
+    var out = [b.center];
+    DIRS.forEach(function (d) { b.arms[d].forEach(function (p) { out.push(p.tile); }); });
+    return out;
+  }
+
+  function count(b) { return tiles(b).length; }
+
+  DM.board = {
+    DIRS: DIRS,
+    DIR_JA: DIR_JA,
+    create: create,
+    openEnds: openEnds,
+    playableEnds: playableEnds,
+    place: place,
+    endSum: endSum,
+    tiles: tiles,
+    count: count
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/*
  * faces.js - 登場人物の顔アイコン（tools/make_faces.py が生成。手で編集しない）
  *
  * 「街と、その白い壁」の立ち絵から顔のまわりを切り抜いたもの。
@@ -645,21 +773,21 @@ html, body {
  *   キャラクター ... 7 つの評価項目への重み
  *   難易度       ... パスから相手の手をどこまで読むか、どれくらい最善手を外すか
  *
- * 1 手ごとに、出せる手（牌 × 左右）それぞれを次の式で評価する。
+ * 1 手ごとに、出せる手（牌 × 端）それぞれを次の式で評価する。
  *
  *   評価 = 重さ     * 出す牌の目の合計（重い牌を先に処理して、負けたときの失点を減らす）
  *        + ダブル   * ダブルかどうか（ダブルは出せる場面が少ないので早めに出す）
- *        + 温存     * 他の 3 人が 1 巡したあと、自分がまた出せる確率・手元の目の種類
- *        + 支配     * 両端の目を自分がどれだけ握っているか
+ *        + 温存     * 他の 2 人が 1 巡したあと、自分がまた出せる確率・手元の目の種類
+ *        + 支配     * 端の目を自分がどれだけ握っているか
  *        + 封鎖     * 相手が次に出せなくなる確率（パスの記録から読む）
- *        + 得点     * この手で取れる点（オールファイブ）
- *        - 献上     * 次の人に取られそうな点（オールファイブ）
+ *        + 得点     * この手で取れる点（端の合計が 5 の倍数）
+ *        - 献上     * 次の人に取られそうな点
  *
- * 「相手が出せなくなる確率」は、見えていない牌を相手に配り直すモンテカルロ法で見積もる。
- * 配り直すときに、パスで分かった「持っていない目」を条件に入れるかどうかが腕前の差になる。
+ * 「相手が出せなくなる確率」などは、見えていない牌を相手と山に配り直すモンテカルロ法で見積もる。
+ * 配り直すときに、パスや山引きで分かった「持っていない目」を条件に入れるかどうかが腕前の差になる。
  *
- * CPU が見るのは、自分の手牌と、場の並び・各席の手牌の枚数・パスの記録だけ。
- * 他の席の手牌（hand）には触らない（tests/audit.js で検証）。
+ * CPU が見るのは、自分の手牌と、場・各席の手牌の枚数・山の枚数・パスと山引きの記録だけ。
+ * 他の席の手牌（hand）と山の中身（bone）には触らない（tests/audit.js で検証）。
  */
 (function (global) {
   'use strict';
@@ -683,7 +811,7 @@ html, body {
     },
     {
       id: 'fumi', name: 'フミ', tag: '攻',
-      w: { heavy: 0.6, dbl: 0.8, keep: 0.6, ctl: 4.0, block: 0.8, score: 1.5, danger: 0.6 },
+      w: { heavy: 0.6, dbl: 0.8, keep: 1.0, ctl: 7.0, block: 0.8, score: 2.0, danger: 0.4 },
       desc: '大柄な茶髪のギャル。自分が多く持つ目で場を押さえ、ごり押しで出し切る力の打ち手',
       talk: {
         domino: ['よっしゃー！ 出し切り〜！', 'てかウチ、天才じゃね？', '場、ぜんぶウチの目にしといたし！'],
@@ -695,7 +823,7 @@ html, body {
     {
       id: 'maki', name: 'マキ', tag: '点',
       w: { heavy: 1.2, dbl: 2.0, keep: 0.8, ctl: 0.8, block: 0.8, score: 5.0, danger: 0.2 },
-      desc: 'ソフトボール部のエース。オールファイブでは 5 の倍数を狙い打ち、取られる点は気にしない',
+      desc: 'ソフトボール部のエース。端の合計が 5 の倍数になる手を狙い打ち、取られる点は気にしない',
       talk: {
         domino: ['ナイスピッチ！ 投げ切った！', 'エースの決め球、見た？', '狙ったところに、ずばっと！'],
         blocked: ['守り勝ち！ 試合は最後までわかんないね。', 'ピンチをしのげば、勝ちは来る！'],
@@ -706,7 +834,7 @@ html, body {
     {
       id: 'chika', name: 'チカ', tag: '柔',
       w: { heavy: 0.5, dbl: 0.6, keep: 5.0, ctl: 0.4, block: 0.5, score: 0.8, danger: 0.8 },
-      desc: '商店街の魚屋の娘。手元の目を散らさず、どんな場でもうら道を見つけて出し続ける',
+      desc: '商店街の魚屋の娘。手元の目を散らさず、山から引かずに出し続ける',
       talk: {
         domino: ['へへっ、うら道から抜けちゃった！', 'まいどあり〜！', '身軽なのが、あたしの取り柄！'],
         blocked: ['行き止まりでも、あたしは身軽だからね。', '手元が軽いと、止まっても強いんだ。'],
@@ -728,7 +856,7 @@ html, body {
     {
       id: 'queen', name: 'イカ女王', tag: '封',
       w: { heavy: 0.6, dbl: 0.8, keep: 0.6, ctl: 0.8, block: 6.0, score: 0.8, danger: 2.0 },
-      desc: '海の向こうの女王。相手がパスした目を端に残し、白い壁のように道をふさぐ',
+      desc: '海の向こうの女王。相手が持っていない目を端に残し、白い壁のように道をふさいで山を引かせる',
       talk: {
         domino: ['ごきげんよう。通れる道は、ございませんわ。', '壁を作るのは、わたくしの得意分野ですの。'],
         blocked: ['ほら、みなさま行き止まり。わたくしの勝ちですわ。', 'ふさいだのは、わたくし。勝ったのも、わたくし。'],
@@ -740,15 +868,15 @@ html, body {
 
   /* --- 難易度（腕前） -------------------------------------------------- */
   var LEVELS = [
-    // readVoids : パスで分かった「持っていない目」を読みに使うか
-    // samples   : 相手の手を配り直す回数
+    // readVoids : パスや山引きで分かった「持っていない目」を読みに使うか
+    // samples   : 相手の手と山を配り直す回数
     // slip/slipTop: この確率で最善手ではなく 2〜slipTop 番手を選ぶ
     { name: 'やさしい', readVoids: false, samples: 40, slip: 0.45, slipTop: 3 },
     { name: 'ふつう', readVoids: true, samples: 120, slip: 0.20, slipTop: 2 },
     { name: 'つよい', readVoids: true, samples: 300, slip: 0, slipTop: 1 }
   ];
 
-  var OPP_WEIGHT = [0, 0.6, 0.25, 0.15];   // 下家・対面・上家の順に、次の手番に近いほど重く見る
+  var OPP_WEIGHT = [0, 0.7, 0.3];   // 下家・上家の順に、次の手番に近いほど重く見る
 
   function levelOf(game, me) {
     var d = me && me.difficulty != null ? me.difficulty : game.difficulty;
@@ -762,25 +890,26 @@ html, body {
 
   function rand(game) { return (game.rng || Math.random)(); }
 
-  /* --- 見えていない牌と、相手の手の配り直し ----------------------------- */
+  /* --- 見えていない牌と、相手の手・山の配り直し ------------------------- */
 
-  /** 自分の手牌にも場にもない牌（＝他の 3 人のどこかにある牌） */
+  /** 自分の手牌にも場にもない牌（＝他の 2 人の手か山のどこかにある牌） */
   function unseenTiles(game, me) {
     var seen = {};
     me.hand.forEach(function (t) { seen[t.id] = true; });
-    game.line.forEach(function (x) { seen[x.tile.id] = true; });
+    DM.board.tiles(game.board).forEach(function (t) { seen[t.id] = true; });
     return DM.TILES.filter(function (t) { return !seen[t.id]; });
   }
 
   /**
-   * 見えていない牌を、各席の枚数どおりに配り直した例を n 通り作る。
-   * readVoids なら、パスで「持っていない」と分かった目の牌はその席に配らない。
-   * 返り値: [{ seat: [tiles] }, ...]（自分の席は含まない）
+   * 見えていない牌を、各席の枚数と山の枚数どおりに配り直した例を n 通り作る。
+   * readVoids なら、「持っていない」と分かった目の牌はその席に配らない（山には制約なし）。
+   * 返り値: [{ seat: [tiles], bone: [tiles] }, ...]（自分の席は含まない）
    */
   function sampleDeals(game, me, n, readVoids, rng) {
     var pool = unseenTiles(game, me);
     var opps = game.players.filter(function (p) { return p.seat !== me.seat; })
       .map(function (p) { return { seat: p.seat, count: p.count, voids: p.voids.slice() }; });
+    opps.push({ seat: 'bone', count: game.boneCount(), voids: [] });
     var out = [];
 
     function allowed(o, t) {
@@ -789,7 +918,6 @@ html, body {
 
     function tryDeal(useVoids) {
       var tiles = DM.shuffle(pool.slice(), rng);
-      // 置き場所の少ない牌から配ると行き詰まりにくい
       if (useVoids) {
         var places = {};
         tiles.forEach(function (t) {
@@ -826,35 +954,41 @@ html, body {
 
   /* --- 評価 ------------------------------------------------------------ */
 
-  function canFollow(hand, L, R) {
-    return hand.some(function (t) { return DM.has(t, L) || DM.has(t, R); });
+  function endValues(board) {
+    return DM.board.playableEnds(board).map(function (e) { return e.value; });
+  }
+
+  function canFollow(hand, values) {
+    return hand.some(function (t) { return values.indexOf(t.a) >= 0 || values.indexOf(t.b) >= 0; });
   }
 
   /**
-   * 配り直した相手の手 deal で、他の 3 人が 1 回ずつ（出せる牌を適当に）つないだあと、
-   * 自分の番に rest から出せるかどうか。
+   * 配り直した相手の手 deal で、他の 2 人が 1 回ずつ（出せる牌を適当に）つないだあと、
+   * 自分の番に rest から出せるかどうか（出せない人は山から引いたことにして飛ばす）。
    */
-  function canFollowLater(seat, deal, L, R, rest, rng) {
-    for (var k = 1; k <= 3; k++) {
-      var hand = deal[(seat + k) % 4];
-      var ok = hand.filter(function (t) { return DM.has(t, L) || DM.has(t, R); });
-      if (!ok.length) continue;
-      var t = ok[Math.floor(rng() * ok.length)];
-      var toL = DM.has(t, L) && (!DM.has(t, R) || rng() < 0.5);
-      if (toL) L = DM.other(t, L); else R = DM.other(t, R);
+  function canFollowLater(game, seat, deal, board, rest, rng) {
+    for (var k = 1; k <= 2; k++) {
+      var hand = deal[(seat + k) % 3];
+      var ends = DM.board.playableEnds(board);
+      var opts = [];
+      hand.forEach(function (t) {
+        ends.forEach(function (e) { if (DM.has(t, e.value)) opts.push({ t: t, dir: e.dir }); });
+      });
+      if (!opts.length) continue;
+      var o = opts[Math.floor(rng() * opts.length)];
+      board = DM.board.place(board, o.t, o.dir);
     }
-    return canFollow(rest, L, R);
+    return canFollow(rest, endValues(board));
   }
 
-  /** 1 手ぶんの点数（オールファイブ）を、仮の場 line に対して計算する */
-  function bestScoreOn(game, line, hand) {
-    var L = line[0].l, R = line[line.length - 1].r;
+  /** 仮の場 board に対して、hand で取れる最高点（オールファイブ） */
+  function bestScoreOn(board, hand) {
     var best = 0;
+    var ends = DM.board.playableEnds(board);
     hand.forEach(function (t) {
-      ['L', 'R'].forEach(function (side) {
-        var e = side === 'L' ? L : R;
-        if (!DM.has(t, e)) return;
-        var s = game.endSum(game.placed(t, side, line));
+      ends.forEach(function (e) {
+        if (!DM.has(t, e.value)) return;
+        var s = DM.board.endSum(DM.board.place(board, t, e.dir));
         if (s > 0 && s % 5 === 0 && s > best) best = s;
       });
     });
@@ -863,8 +997,8 @@ html, body {
 
   /**
    * 出せる手それぞれの評価項目を計算する。
-   * 返り値: [{ move, tile, rest, ends: [L, R], f: { heavy, dbl, keep, ctl, block, score, danger },
-   *            oppBlock: { seat: 確率 }, points }]
+   * 返り値: [{ move, tile, rest, board, ends: [目...], f: { heavy, dbl, keep, ctl, block, score, danger },
+   *            oppBlock: { seat: 確率 }, follow, dangerPts, points }]
    */
   function analyze(game, me, moves, level, rng) {
     var deals = sampleDeals(game, me, level.samples, level.readVoids, rng);
@@ -872,45 +1006,45 @@ html, body {
 
     return moves.map(function (m) {
       var tile = me.hand[m.index];
-      var line = game.placed(tile, m.side);
-      var L = line[0].l, R = line[line.length - 1].r;
+      var board = game.placed(tile, m.dir);
+      var ends = endValues(board);
       var rest = me.hand.filter(function (_, i) { return i !== m.index; });
-      var points = game.scoreOf(tile, m.side);
+      var points = game.scoreOf(tile, m.dir);
 
       // 温存: 手元の目の種類（どこに何が来ても出せるように）
       var kinds = {};
       rest.forEach(function (t) { kinds[t.a] = 1; kinds[t.b] = 1; });
 
       // 支配: 端の目の残り牌を、自分がどれだけ握っているか
-      function share(e) {
+      var uniq = ends.filter(function (v, i) { return ends.indexOf(v) === i; });
+      var ctl = uniq.reduce(function (sum, e) {
         var mine = rest.filter(function (t) { return DM.has(t, e); }).length;
         var other = unseen.filter(function (t) { return DM.has(t, e); }).length;
-        return mine / (mine + other + 0.5);
-      }
-      var ctl = (share(L) + share(R)) / 2;
+        return sum + mine / (mine + other + 0.5);
+      }, 0) / Math.max(1, uniq.length);
 
-      // 封鎖・献上: 配り直した相手の手で、次に出せるか・何点取れるか
+      // 封鎖・献上・温存: 配り直した相手の手で数える
       var oppBlock = {}, danger = 0, follow = 0;
-      var next = (me.seat + 1) % 4;
+      var next = (me.seat + 1) % 3;
       game.players.forEach(function (p) { if (p.seat !== me.seat) oppBlock[p.seat] = 0; });
       deals.forEach(function (d) {
-        Object.keys(d).forEach(function (seat) {
-          if (!canFollow(d[seat], L, R)) oppBlock[seat]++;
+        Object.keys(oppBlock).forEach(function (seat) {
+          if (!canFollow(d[seat], ends)) oppBlock[seat]++;
         });
-        if (game.mode === 'fives') danger += bestScoreOn(game, line, d[next]);
-        if (rest.length && canFollowLater(me.seat, d, L, R, rest, rng)) follow++;
+        danger += bestScoreOn(board, d[next]);
+        if (rest.length && canFollowLater(game, me.seat, d, board, rest, rng)) follow++;
       });
-      follow = rest.length ? follow / deals.length : 1;
-      var keep = 0.7 * follow + 0.3 * Object.keys(kinds).length / 7;
       var block = 0;
       Object.keys(oppBlock).forEach(function (seat) {
         oppBlock[seat] /= deals.length;
-        block += OPP_WEIGHT[(seat - me.seat + 4) % 4] * oppBlock[seat];
+        block += OPP_WEIGHT[(seat - me.seat + 3) % 3] * oppBlock[seat];
       });
       danger /= deals.length;
+      follow = rest.length ? follow / deals.length : 1;
+      var keep = 0.7 * follow + 0.3 * Object.keys(kinds).length / 7;
 
       return {
-        move: m, tile: tile, rest: rest, ends: [L, R], points: points,
+        move: m, tile: tile, rest: rest, board: board, ends: ends, points: points,
         oppBlock: oppBlock, dangerPts: danger, follow: follow,
         f: {
           heavy: DM.pips(tile) / 12,
@@ -967,42 +1101,46 @@ html, body {
 </script>
 <script>
 /*
- * game.js - ドミノ（4 人・ダブルシックス）のゲームエンジン
+ * game.js - ドミノ（3 人・ダブルシックス・オールファイブ）のゲームエンジン
  *
  * ルール:
- *   - 28 枚を 4 人に 7 枚ずつ配る（山は残らない）
- *   - 最初の局は 6-6 を持っている人が 6-6 から始める。2 局目からは前局の勝者が好きな牌で始める
- *   - 手番では、場の両端（左端・右端）のどちらかに同じ目でつなぐ。出せる牌があれば必ず出す
- *   - 出せなければパス。4 人続けてパスしたら「ブロック（行き詰まり）」
+ *   - 28 枚から 3 人に 7 枚ずつ配り、残り 7 枚が山（ボーンヤード）
+ *   - 最初の局は、一番大きいダブルを持っている人がそのダブルから始める。
+ *     2 局目からは前局の勝者が好きな牌で始める
+ *   - 最初の牌がダブルならスピナー。左右に 1 枚ずつつながると、上下にものばせる（端が最大 4 つ）
+ *   - 手番では、どれかの端に同じ目でつなぐ。出せる牌があれば必ず出す。
+ *     出せなければ、出せる牌が来るまで山から引く。山が空ならパス
+ *   - 3 人続けてパスしたら行き詰まり（ブロック）
  *   - 手牌を出し切った人が「ドミノ」で局の勝者
  *
- * 得点（2 方式）:
- *   block ... 勝者が他の 3 人の残り目の合計を得る。行き詰まりは残り目が最少の人が勝者
- *             （最少が同点なら得点なし）
- *   fives ... 上に加えて、つないだ直後に両端の目の合計が 5 の倍数ならその点を得る
- *             （端がダブルなら両方の目を数える）。局の精算は 5 点単位に丸める
+ * 得点（オールファイブ）:
+ *   - つないだ直後に、端の目の合計が 5 の倍数ならその点を得る（board.js の endSum）
+ *   - 局の勝者は、他の 2 人の残り目の合計を 5 点単位に丸めて得る。
+ *     行き詰まりは残り目が最少の人が勝者（最少が同点なら精算なし）
+ *   - 誰かが目標点に届いたら、その局の精算で対戦終了
  */
 (function (global) {
   'use strict';
 
   var DM = global.DM;
-  var SEAT_NAMES = ['あなた', '下家CPU', '対面CPU', '上家CPU'];
-  var SEAT_LABELS = ['', '下家', '対面', '上家'];
-  var TARGETS = { block: 100, fives: 200 };
+  var B = DM.board;
+  var SEAT_NAMES = ['あなた', '下家CPU', '上家CPU'];
+  var SEAT_LABELS = ['', '下家', '上家'];
+  var HAND = 7;
+  var TARGET = 250;
 
   function Game(opts) {
     opts = opts || {};
     this.onEvent = opts.onEvent || function () {};
     this.speed = opts.speed == null ? 650 : opts.speed;
     this.seed = opts.seed;
-    this.mode = opts.mode === 'fives' ? 'fives' : 'block';
-    this.target = opts.target || TARGETS[this.mode];
+    this.target = opts.target || TARGET;
     // CPU の強さ 0=やさしい / 1=ふつう / 2=つよい
     this.difficulty = opts.difficulty == null ? 1 : opts.difficulty;
     // 顔ぶれ: me = あなたのキャラ（null なら名なしの「あなた」）、
-    // opps = 下家・対面・上家に座らせるキャラ（null の席はおまかせ）
+    // opps = 下家・上家に座らせるキャラ（null の席はおまかせ）
     this.cast = { me: opts.me == null ? null : opts.me, opps: opts.opps || [] };
-    this.players = [0, 1, 2, 3].map(function (i) {
+    this.players = [0, 1, 2].map(function (i) {
       return {
         seat: i,
         name: SEAT_NAMES[i],
@@ -1013,11 +1151,13 @@ html, body {
         score: 0,
         hand: [],
         count: 0,          // 手牌の枚数（公開情報。CPU はこちらだけを見る）
-        voids: [],         // パスしたことで「持っていない」と分かった目（公開情報）
-        passed: false
+        voids: [],         // パスや山引きで「持っていない」と分かった目（公開情報）
+        passed: false,
+        drew: 0            // この手番で山から引いた枚数（表示用）
       };
     });
-    this.line = [];
+    this.board = null;
+    this.bone = [];
     this.timer = null;
   }
 
@@ -1033,6 +1173,9 @@ html, body {
   };
 
   Game.prototype.stop = function () { clearTimeout(this.timer); };
+
+  /** 山の残り枚数（公開情報） */
+  Game.prototype.boneCount = function () { return this.bone.length; };
 
   /* --- 開始 ------------------------------------------------------------ */
 
@@ -1056,13 +1199,13 @@ html, body {
     var valid = function (c) { return c != null && c >= 0 && c < N; };
     var used = {};
     var me = this.players[0];
-    me.character = valid(this.cast.me) ? this.cast.me : null;
-    me.name = me.character != null ? DM.ai.CHARACTERS[me.character].name : 'あなた';
+    me.character = !me.isAI && valid(this.cast.me) ? this.cast.me : null;
+    if (!me.isAI) me.name = me.character != null ? DM.ai.CHARACTERS[me.character].name : SEAT_NAMES[0];
     if (me.character != null) used[me.character] = true;
 
     var fixed = {};
     this.players.forEach(function (p) {
-      if (!p.isAI) return;
+      if (!p.isAI || p.seat === 0) return;
       var c = this.cast.opps[p.seat - 1];
       if (valid(c) && !used[c]) { fixed[p.seat] = c; used[c] = true; }
     }, this);
@@ -1075,7 +1218,7 @@ html, body {
       p.character = fixed[p.seat] != null ? fixed[p.seat] : pool.shift();
       p.name = DM.ai.CHARACTERS[p.character].name;
     });
-    this.log('対戦相手: ' + this.players.filter(function (p) { return p.isAI; })
+    this.log('対戦相手: ' + this.players.filter(function (p) { return p.isAI && p.seat !== 0; })
       .map(function (p) { return p.seatLabel + ' ' + p.name; }).join(' / ') +
       (me.character != null ? '（あなたは ' + me.name + '）' : ''));
   };
@@ -1084,30 +1227,40 @@ html, body {
     var self = this;
     var deck = DM.shuffle(DM.TILES.slice(), this.rng);
     this.handNo++;
-    this.line = [];
+    this.board = null;
+    this.lastTile = null;
     this.passesInRow = 0;
     this.awaiting = null;
     this.result = null;
+    this.current = null;
     this.turns = 0;
     this.players.forEach(function (p, i) {
-      p.hand = DM.sortHand(deck.slice(i * 7, i * 7 + 7));
-      p.count = 7;
+      p.hand = DM.sortHand(deck.slice(i * HAND, i * HAND + HAND));
+      p.count = HAND;
       p.voids = [false, false, false, false, false, false, false];
       p.passed = false;
+      p.drew = 0;
     });
+    this.bone = deck.slice(3 * HAND);
 
-    // 最初の局は 6-6 を持つ人から。2 局目以降は前局の勝者から
-    this.openingDouble = this.handNo === 1;
-    if (this.openingDouble) {
-      this.leader = this.players.filter(function (p) {
-        return p.hand.some(function (t) { return t.a === 6 && t.b === 6; });
-      })[0].seat;
+    // 最初の局は、一番大きいダブル（なければ一番重い牌）を持つ人がその牌から始める
+    this.openingTile = null;
+    if (this.handNo === 1) {
+      var best = null;
+      this.players.forEach(function (p) {
+        p.hand.forEach(function (t) {
+          var key = (DM.isDouble(t) ? 100 : 0) + DM.pips(t) * 2 + t.b / 10;
+          if (!best || key > best.key) best = { key: key, tile: t, seat: p.seat };
+        });
+      });
+      this.openingTile = best.tile;
+      this.leader = best.seat;
     } else {
       this.leader = this.nextLeader;
     }
 
     this.log('=== 第' + this.handNo + '局 / 親: ' + this.players[this.leader].name +
-      (this.openingDouble ? '（6-6 から）' : '') + ' ===');
+      (this.openingTile ? '（' + DM.label(this.openingTile) + ' から）' : '') + ' ===');
     this.emit('handStart', {});
     this.emit('update', {});
     this.schedule(function () { self.beginTurn(self.leader); });
@@ -1115,58 +1268,37 @@ html, body {
 
   /* --- 場 -------------------------------------------------------------- */
 
-  Game.prototype.leftEnd = function () { return this.line.length ? this.line[0].l : null; };
-  Game.prototype.rightEnd = function () { return this.line.length ? this.line[this.line.length - 1].r : null; };
+  Game.prototype.ends = function () { return B.openEnds(this.board); };
+  Game.prototype.endSum = function (board) { return B.endSum(board === undefined ? this.board : board); };
 
-  /** 両端の目の合計（オールファイブの得点判定）。端がダブルなら両方の目を数える */
-  Game.prototype.endSum = function (line) {
-    line = line || this.line;
-    if (!line.length) return 0;
-    if (line.length === 1) return DM.pips(line[0].tile);
-    var L = line[0], R = line[line.length - 1];
-    return (DM.isDouble(L.tile) ? L.l * 2 : L.l) + (DM.isDouble(R.tile) ? R.r * 2 : R.r);
-  };
-
-  /** 手牌 hand で出せる手の一覧 [{ index, side: 'L'|'R' }] */
+  /** 手牌 hand で出せる手の一覧 [{ index, dir }]（最初の 1 枚は dir: 'C'） */
   Game.prototype.legalMoves = function (hand) {
     var moves = [];
-    if (!this.line.length) {
+    if (!this.board) {
       hand.forEach(function (t, i) {
-        if (this.openingDouble && !(t.a === 6 && t.b === 6)) return;
-        moves.push({ index: i, side: 'R' });
+        if (this.openingTile && t.id !== this.openingTile.id) return;
+        moves.push({ index: i, dir: 'C' });
       }, this);
       return moves;
     }
-    var L = this.leftEnd(), R = this.rightEnd();
+    var ends = B.playableEnds(this.board);
     hand.forEach(function (t, i) {
-      // 両端が同じ目なら、どちらに置いても局面は同じなので右だけにする
-      if (DM.has(t, L) && L !== R) moves.push({ index: i, side: 'L' });
-      if (DM.has(t, R)) moves.push({ index: i, side: 'R' });
+      ends.forEach(function (e) {
+        if (DM.has(t, e.value)) moves.push({ index: i, dir: e.dir });
+      });
     });
     return moves;
   };
 
-  /**
-   * 牌を置いたあとの場を返す（this.line は変えない）。CPU の読みとヒントでも使う。
-   */
-  Game.prototype.placed = function (tile, side, line) {
-    line = (line || this.line).slice();
-    if (!line.length) {
-      line.push({ tile: tile, l: tile.b, r: tile.a });
-    } else if (side === 'L') {
-      var e = line[0].l;
-      line.unshift({ tile: tile, l: DM.other(tile, e), r: e });
-    } else {
-      var f = line[line.length - 1].r;
-      line.push({ tile: tile, l: f, r: DM.other(tile, f) });
-    }
-    return line;
+  /** 牌を置いたあとの場（this.board は変えない）。CPU の読みとヒントでも使う */
+  Game.prototype.placed = function (tile, dir, board) {
+    board = board === undefined ? this.board : board;
+    return board ? B.place(board, tile, dir) : B.create(tile);
   };
 
-  /** その手で得られるオールファイブの点（block では常に 0） */
-  Game.prototype.scoreOf = function (tile, side) {
-    if (this.mode !== 'fives') return 0;
-    var s = this.endSum(this.placed(tile, side));
+  /** その手で得られる点 */
+  Game.prototype.scoreOf = function (tile, dir) {
+    var s = B.endSum(this.placed(tile, dir));
     return s > 0 && s % 5 === 0 ? s : 0;
   };
 
@@ -1175,16 +1307,18 @@ html, body {
   Game.prototype.beginTurn = function (seat) {
     if (this.result || this.gameOver) return;
     var p = this.players[seat];
+    if (this.current !== seat) p.drew = 0;
     this.current = seat;
     var moves = this.legalMoves(p.hand);
 
     if (!moves.length) {
+      var type = this.bone.length ? 'draw' : 'pass';
       if (p.isAI) {
         this.awaiting = null;
         this.emit('update', {});
-        this.schedule(function () { this.pass(p); });
+        this.schedule(function () { if (type === 'draw') this.draw(p); else this.pass(p); });
       } else {
-        this.awaiting = { type: 'pass', seat: seat };
+        this.awaiting = { type: type, seat: seat };
         this.emit('await', this.awaiting);
         this.emit('update', {});
       }
@@ -1205,51 +1339,80 @@ html, body {
     }
   };
 
+  /** 今の端の目を、その人は持っていないと分かる（パス・山引きのとき） */
+  Game.prototype.markVoids = function (p, reset) {
+    if (reset) p.voids = [false, false, false, false, false, false, false];
+    this.ends().forEach(function (e) { p.voids[e.value] = true; });
+  };
+
+  Game.prototype.draw = function (p) {
+    // 引く前に出せなかった＝今の端の目がない。前に分かっていた「ない目」は、
+    // 引いた牌で変わりうるので消す
+    this.markVoids(p, true);
+    var tile = this.bone.pop();
+    p.hand.push(tile);
+    DM.sortHand(p.hand);
+    p.count = p.hand.length;
+    p.drew++;
+    this.awaiting = null;
+    this.emit('draw', { seat: p.seat });
+    this.emit('update', {});
+    this.schedule(function () { this.beginTurn(p.seat); });
+  };
+
   Game.prototype.play = function (p, move) {
     var tile = p.hand.splice(move.index, 1)[0];
-    var first = !this.line.length;
-    var pts = this.scoreOf(tile, move.side);
-    this.line = this.placed(tile, move.side);
-    this.line[move.side === 'L' ? 0 : this.line.length - 1].by = p.seat;
+    var first = !this.board;
+    var pts = this.scoreOf(tile, move.dir);
+    this.board = this.placed(tile, move.dir);
+    this.lastTile = tile;
     p.count = p.hand.length;
     p.passed = false;
     this.passesInRow = 0;
-    this.openingDouble = false;
+    this.openingTile = null;
     this.awaiting = null;
     this.turns++;
 
-    var where = first ? '' : (move.side === 'L' ? ' → 左端' : ' → 右端');
-    this.log(p.name + ' ' + DM.label(tile) + where + (pts ? '　' + pts + '点！' : ''));
+    var drew = p.drew ? '（' + p.drew + '枚引いて）' : '';
+    var where = first ? '' : ' → ' + B.DIR_JA[move.dir];
+    this.log(p.name + drew + ' ' + DM.label(tile) + where + (pts ? '　' + pts + '点！' : ''));
     if (pts) p.score += pts;
-    this.emit('play', { seat: p.seat, tile: tile, side: move.side, points: pts });
+    this.emit('play', { seat: p.seat, tile: tile, dir: move.dir, points: pts });
     this.emit('update', {});
 
     if (p.count === 0) { this.endHand('domino', p.seat); return; }
-    this.schedule(function () { this.beginTurn((p.seat + 1) % 4); });
+    this.schedule(function () { this.beginTurn((p.seat + 1) % 3); });
   };
 
   Game.prototype.pass = function (p) {
-    var L = this.leftEnd(), R = this.rightEnd();
-    p.voids[L] = true;
-    p.voids[R] = true;
+    this.markVoids(p, false);
     p.passed = true;
     this.passesInRow++;
     this.awaiting = null;
-    this.log(p.name + ' パス（' + (L === R ? L : L + '・' + R) + ' がない）');
+    var vals = [];
+    this.ends().forEach(function (e) { if (vals.indexOf(e.value) < 0) vals.push(e.value); });
+    this.log(p.name + (p.drew ? '（' + p.drew + '枚引いて）' : '') + ' パス（' + vals.join('・') + ' がない）');
     this.emit('pass', { seat: p.seat });
     this.emit('update', {});
-    if (this.passesInRow >= 4) { this.endHand('blocked', null); return; }
-    this.schedule(function () { this.beginTurn((p.seat + 1) % 4); });
+    if (this.passesInRow >= 3) { this.endHand('blocked', null); return; }
+    this.schedule(function () { this.beginTurn((p.seat + 1) % 3); });
   };
 
   /* --- プレイヤー操作 -------------------------------------------------- */
 
-  Game.prototype.playerPlay = function (index, side) {
+  Game.prototype.playerPlay = function (index, dir) {
     var a = this.awaiting;
     if (!a || a.type !== 'turn' || a.seat !== 0) return false;
-    var ok = a.moves.some(function (m) { return m.index === index && m.side === side; });
+    var ok = a.moves.some(function (m) { return m.index === index && m.dir === dir; });
     if (!ok) return false;
-    this.play(this.players[0], { index: index, side: side });
+    this.play(this.players[0], { index: index, dir: dir });
+    return true;
+  };
+
+  Game.prototype.playerDraw = function () {
+    var a = this.awaiting;
+    if (!a || a.type !== 'draw' || a.seat !== 0) return false;
+    this.draw(this.players[0]);
     return true;
   };
 
@@ -1278,7 +1441,7 @@ html, body {
     var gain = 0;
     if (winner != null) {
       pips.forEach(function (x, i) { if (i !== winner) gain += x; });
-      if (this.mode === 'fives') gain = round5(gain);
+      gain = round5(gain);
       this.players[winner].score += gain;
     }
 
@@ -1286,15 +1449,14 @@ html, body {
     if (type === 'domino') {
       detail.push(this.players[winner].name + ' が出し切り（ドミノ）');
     } else {
-      detail.push('4 人続けてパス（ブロック）。残り目の少ない人が勝者');
-      if (winner == null) detail.push('残り目が最少の人が同点のため、得点なし');
+      detail.push('山が空で 3 人続けてパス（ブロック）。残り目の少ない人が勝者');
+      if (winner == null) detail.push('残り目が最少の人が同点のため、精算なし');
     }
     if (winner != null) {
-      detail.push(this.players[winner].name + ' +' + gain + '点（他の 3 人の残り目' +
-        (this.mode === 'fives' ? '、5 点単位に丸め' : '') + '）');
+      detail.push(this.players[winner].name + ' +' + gain + '点（他の 2 人の残り目を 5 点単位に丸め）');
     }
 
-    this.nextLeader = winner != null ? winner : (this.leader + 1) % 4;
+    this.nextLeader = winner != null ? winner : (this.leader + 1) % 3;
     this.finished = this.players.some(function (p) { return p.score >= self.target; });
     this.awaiting = null;
     this.result = {
@@ -1307,7 +1469,7 @@ html, body {
       final: this.finished
     };
     this.log(type === 'domino' ? '--- ' + this.players[winner].name + ' ドミノ！ +' + gain + '点 ---'
-      : '--- ブロック' + (winner != null ? '　' + this.players[winner].name + ' +' + gain + '点' : '（得点なし）') + ' ---');
+      : '--- ブロック' + (winner != null ? '　' + this.players[winner].name + ' +' + gain + '点' : '（精算なし）') + ' ---');
     this.emit('update', {});
     this.emit('result', this.result);
   };
@@ -1327,7 +1489,7 @@ html, body {
     this.startHand();
   };
 
-  Game.TARGETS = TARGETS;
+  Game.TARGET = TARGET;
   DM.Game = Game;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -1339,20 +1501,22 @@ html, body {
  *   { best, list, reasons[], voids, unseen }
  *
  * 評価は CPU と同じ ai.rank() を、ナオ（基準の打ち手）の重み・つよいの読みで呼ぶ。
- * ヒントも CPU と同じく、自分の手牌と公開情報（場・枚数・パスの記録）しか見ない。
+ * ヒントも CPU と同じく、自分の手牌と公開情報（場・枚数・山の枚数・パスと山引きの記録）しか見ない。
  * 乱数はゲーム本体の rng を使わない（ヒントを見たかどうかで CPU の手が変わらないように）。
  */
 (function (global) {
   'use strict';
 
   var DM = global.DM;
-  var SEAT_WORD = ['あなた', '下家', '対面', '上家'];
+  var SEAT_WORD = ['あなた', '下家', '上家'];
 
   function pct(x) { return Math.round(x * 100) + '%'; }
 
-  function ends(a) { return a.ends[0] === a.ends[1] ? String(a.ends[0]) : a.ends[0] + '・' + a.ends[1]; }
+  function ends(a) {
+    return a.ends.filter(function (v, i) { return a.ends.indexOf(v) === i; }).join('・');
+  }
 
-  /** パスの記録から分かっている「持っていない目」 */
+  /** パスや山引きの記録から分かっている「持っていない目」 */
   function voidText(p) {
     var v = [];
     p.voids.forEach(function (x, n) { if (x) v.push(n); });
@@ -1363,36 +1527,36 @@ html, body {
     var out = [];
     if (!a.rest.length) return ['これで出し切り（ドミノ）です。'];
 
-    if (a.points) out.push('両端の合計が ' + a.points + ' になり、' + a.points + '点入ります。');
+    if (a.points) out.push('端の合計が ' + a.points + ' になり、' + a.points + '点入ります。');
 
     // 封鎖: 次に出せなくなりそうな相手
     var seats = Object.keys(a.oppBlock).map(Number).sort(function (x, y) { return a.oppBlock[y] - a.oppBlock[x]; });
     var top = seats[0];
     if (a.oppBlock[top] >= 0.5) {
       var p = game.players[top];
-      var known = voidText(p).filter(function (n) { return n === a.ends[0] || n === a.ends[1]; });
+      var known = voidText(p).filter(function (n) { return a.ends.indexOf(n) >= 0; });
       out.push(SEAT_WORD[top] + '（' + p.name + '）は次に出せない見込み ' + pct(a.oppBlock[top]) +
-        (known.length ? '。前に ' + known.join('・') + ' でパスしています。' : '。'));
+        (known.length ? '。前に ' + known.join('・') + ' がなくて引くかパスしています。' : '。'));
     }
 
     if (DM.isDouble(a.tile)) {
       out.push('ダブルはつなげる目が 1 種類しかないので、出せるうちに出しておきます。');
     } else if (DM.pips(a.tile) >= 8) {
-      out.push('重い牌（' + DM.pips(a.tile) + '目）を先に処理。ブロックで負けたときの失点が減ります。');
+      out.push('重い牌（' + DM.pips(a.tile) + '目）を先に処理。負けたときに取られる点が減ります。');
     }
 
     if (a.follow >= 0.75) {
-      out.push('出したあと両端は ' + ends(a) + '。他の 3 人が 1 巡しても、自分がまた出せる見込み ' + pct(a.follow) + '。');
+      out.push('出したあと端は ' + ends(a) + '。他の 2 人が 1 巡しても、自分がまた出せる見込み ' + pct(a.follow) + '。');
     } else if (a.follow < 0.5) {
-      out.push('出したあと両端は ' + ends(a) + '。次の自分の番はパスになる恐れがあります（出せる見込み ' + pct(a.follow) + '）。');
+      out.push('出したあと端は ' + ends(a) + '。次の自分の番は山から引くことになりそうです（出せる見込み ' + pct(a.follow) + '）。');
     }
 
-    if (game.mode === 'fives' && a.dangerPts >= 4) {
+    if (a.dangerPts >= 4) {
       out.push('ただし下家に平均 ' + a.dangerPts.toFixed(1) + '点ほど取られる見込みがあります。');
     }
 
     if (second && out.length < 2) {
-      out.push('次点は ' + DM.label(second.tile) + (game.line.length ? (second.move.side === 'L' ? '（左端）' : '（右端）') : '') + '。');
+      out.push('次点は ' + DM.label(second.tile) + (second.move.dir !== 'C' ? '（' + DM.board.DIR_JA[second.move.dir] + '）' : '') + '。');
     }
     return out.slice(0, 3);
   }
@@ -1445,10 +1609,10 @@ html, body {
   var PIPS = [[], [4], [2, 6], [2, 4, 6], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
 
   var game = null;
-  var settings = { difficulty: 1, speed: 650, mode: 'block', hint: false, me: null, opps: [] };
-  var OPP_SEATS = ['下家', '対面', '上家'];
+  var settings = { difficulty: 1, speed: 650, hint: false, me: null, opps: [] };
+  var OPP_SEATS = ['下家', '上家'];
   var pickMe = null, pickOpps = [];   // 顔ぶれ選びの途中の状態
-  var selected = -1;       // 両端に出せる牌を選んで、左右を選んでいる途中
+  var selected = -1;       // 複数の端に出せる牌を選んで、どの端にするか選んでいる途中
   var lastId = null;       // 直前に場に出た牌
   var advice = null;       // ヒントの結果（手番ごとに 1 回だけ計算する）
   var adviceFor = null;
@@ -1525,85 +1689,167 @@ html, body {
   /* --- 場 -------------------------------------------------------------- */
 
   /**
-   * 場の並びを箱に収める。牌の寸法 u を大きい方から試し、
-   * 折り返した段数が箱の高さに収まる最大の u を使う。
-   * 偶数段は左から右、奇数段は右から左に並べる（蛇行）。
+   * 場（中心の牌と 4 方向の腕）を箱に収めて描く。
+   * 腕が箱からはみ出すときは、中心側の牌を「+3」のように畳み、端に近い牌を残す。
+   * 開いていてまだ空の端には、点線の枠を出す。
    */
-  function layoutLine(box, line) {
-    var PAD = 6, GAP = 3;
-    var W = box.clientWidth - PAD * 2, H = box.clientHeight - PAD * 2;
-    var u, rows;
-    for (u = 30; u >= 7; u--) {
-      var cap = Math.floor((H + GAP) / (u * 2 + GAP));
-      rows = [[]];
-      var cur = 0;
-      for (var i = 0; i < line.length; i++) {
-        var w = DM.isDouble(line[i].tile) ? u : u * 2;
-        if (cur > 0 && cur + w > W) { rows.push([]); cur = 0; }
-        rows[rows.length - 1].push(i);
-        cur += w + GAP;
-      }
-      if (rows.length <= cap) break;
+  /**
+   * 場の配置を計算する。腕ごとに「区間」を用意し、牌を中心から順に置いていく。
+   *   左右の腕: 箱の端まで行ったら、1 段ずらして（右は下、左は上へ）折り返す
+   *   上下の腕: 箱の端まで行ったら、上は右へ、下は左へ曲がる
+   * それでも入りきらない腕は、中心側の牌を「+n」に畳む。
+   * 返り値: { u, items: [{ kind: 'dom'|'more'|'slot', ... }], folded }
+   */
+  function planBoard(b, u, W, H) {
+    var PAD = 6, GAP = 2, CHIP = 22;
+    var cx = PAD + W / 2, cy = PAD + H / 2;
+    var cw = b.spin ? u : u * 2, ch = b.spin ? u * 2 : u;
+    var c = { left: cx - cw / 2, top: cy - ch / 2, right: cx + cw / 2, bottom: cy + ch / 2 };
+    var items = [], folded = false;
+    var ends = DM.board.openEnds(b);
+    var playable = DM.board.playableEnds(b).map(function (e) { return e.dir; });
+    var step = u * 2 + 8;              // 折り返した段のずれ
+    var inner = u + 8;                 // 折り返した段が中心の列に近づきすぎないように
+
+    items.push({ kind: 'dom', tile: b.center, x: c.left, y: c.top,
+      top: b.spin ? b.center.a : b.center.b, bottom: b.center.a, orient: b.spin ? 'v' : 'h', center: true });
+
+    function segmentsFor(d) {
+      if (d === 'E') return [
+        { axis: 'x', from: c.right + GAP, dir: 1, to: PAD + W, at: cy },
+        { axis: 'x', from: PAD + W, dir: -1, to: cx + inner, at: cy + step }];
+      if (d === 'W') return [
+        { axis: 'x', from: c.left - GAP, dir: -1, to: PAD, at: cy },
+        { axis: 'x', from: PAD, dir: 1, to: cx - inner, at: cy - step }];
+      // 上の腕は箱の上端で右へ、下の腕は下端で左へ曲がる（左右の折り返しとぶつからない側）
+      if (d === 'N') return [
+        { axis: 'y', from: c.top - GAP, dir: -1, to: PAD, at: cx },
+        { axis: 'x', from: cx + inner, dir: 1, to: PAD + W, at: PAD + u }];
+      return [
+        { axis: 'y', from: c.bottom + GAP, dir: 1, to: PAD + H, at: cx },
+        { axis: 'x', from: cx - inner, dir: -1, to: PAD, at: PAD + H - u }];
     }
 
-    var rowH = u * 2;
-    var blockH = rows.length * rowH + (rows.length - 1) * GAP;
-    var offY = PAD + Math.max(0, (H - blockH) / 2);
-    var out = [];
-    rows.forEach(function (row, r) {
-      var rev = r % 2 === 1;
-      var widthOf = function (i) { return DM.isDouble(line[i].tile) ? u : u * 2; };
-      var total = row.reduce(function (s, i) { return s + widthOf(i) + GAP; }, -GAP);
-      // 1 段だけのときは中央に置く
-      var x = rows.length === 1 ? PAD + (W - total) / 2 : (rev ? PAD + W : PAD);
-      row.forEach(function (i) {
-        var p = line[i], w = widthOf(i), dbl = DM.isDouble(p.tile);
-        var left = rev ? x - w : x;
-        x = rev ? x - w - GAP : x + w + GAP;
-        var top = offY + r * (rowH + GAP) + (dbl ? 0 : u / 2);
-        var cls = [];
-        if (line.length > 1 && i === 0) cls.push('end-l');
-        if (line.length > 1 && i === line.length - 1) cls.push('end-r');
-        if (p.tile.id === lastId) cls.push('last');
-        var style = ' style="--u:' + u + 'px;left:' + left + 'px;top:' + top + 'px"';
-        out.push(dbl ? domHTML(p.l, p.r, 'v', cls.join(' '), style)
-          : rev ? domHTML(p.r, p.l, 'h', cls.join(' '), style)
-          : domHTML(p.l, p.r, 'h', cls.join(' '), style));
+    /** pieces を区間に順に置く。入りきらなければ null */
+    function layout(d, pieces, chip) {
+      var segs = segmentsFor(d), k = 0, pos = segs[0].from, out = [];
+      if (chip) {
+        var s0 = segs[0];
+        var cp = s0.dir < 0 ? pos - CHIP : pos;
+        out.push({ kind: 'more', axis: s0.axis, p: cp, at: s0.at });
+        pos += s0.dir * (CHIP + GAP);
+      }
+      for (var i = 0; i < pieces.length; i++) {
+        var pc = pieces[i], L = DM.isDouble(pc.tile) ? u : u * 2;
+        while (k < segs.length) {
+          var sg = segs[k];
+          var end = pos + sg.dir * L;
+          if (sg.dir > 0 ? end <= sg.to : end >= sg.to) break;
+          k++;
+          if (k < segs.length) pos = segs[k].from;
+        }
+        if (k >= segs.length) return null;
+        var sgm = segs[k];
+        out.push({ kind: 'piece', pc: pc, axis: sgm.axis, p: sgm.dir < 0 ? pos - L : pos, at: sgm.at, dir: sgm.dir, len: L });
+        pos += sgm.dir * (L + GAP);
+      }
+      return out;
+    }
+
+    DM.board.DIRS.forEach(function (d) {
+      var arm = b.arms[d];
+      var open = ends.some(function (e) { return e.dir === d; });
+      if (!arm.length) {
+        if (open && playable.indexOf(d) >= 0) {
+          var sg = segmentsFor(d)[0];
+          var sw = sg.axis === 'x' ? u * 2 : u, sh = sg.axis === 'x' ? u : u * 2;
+          var sx = sg.axis === 'x' ? (sg.dir < 0 ? sg.from - sw : sg.from) : cx - sw / 2;
+          var sy = sg.axis === 'x' ? cy - sh / 2 : (sg.dir < 0 ? sg.from - sh : sg.from);
+          items.push({ kind: 'slot', x: sx, y: sy, w: sw, h: sh, label: DM.board.DIR_JA[d] });
+        }
+        return;
+      }
+      var from = 0, placed = layout(d, arm, false);
+      while (!placed && from < arm.length - 1) { from++; placed = layout(d, arm.slice(from), true); }
+      if (from > 0) folded = true;
+      if (!placed) { folded = true; placed = layout(d, arm.slice(arm.length - 1), true) || []; from = arm.length - 1; }
+      placed.forEach(function (it, j) {
+        if (it.kind === 'more') {
+          items.push({ kind: 'more', n: from, x: it.axis === 'x' ? it.p : it.at - CHIP / 2, y: it.axis === 'x' ? it.at - 9 : it.p });
+          return;
+        }
+        var pc = it.pc, dbl = DM.isDouble(pc.tile), last = pc === arm[arm.length - 1];
+        var fwd = it.dir > 0;   // 牌の外側の目を、進む向きの側に置く
+        if (it.axis === 'x') {
+          items.push(dbl
+            ? { kind: 'dom', tile: pc.tile, x: it.p, y: it.at - u, top: pc.outer, bottom: pc.outer, orient: 'v' }
+            : { kind: 'dom', tile: pc.tile, x: it.p, y: it.at - u / 2, top: fwd ? pc.inner : pc.outer, bottom: fwd ? pc.outer : pc.inner, orient: 'h' });
+        } else {
+          items.push(dbl
+            ? { kind: 'dom', tile: pc.tile, x: it.at - u, y: it.p, top: pc.outer, bottom: pc.outer, orient: 'h' }
+            : { kind: 'dom', tile: pc.tile, x: it.at - u / 2, y: it.p, top: fwd ? pc.inner : pc.outer, bottom: fwd ? pc.outer : pc.inner, orient: 'v' });
+        }
+        if (last && open) { items[items.length - 1].end = true; items[items.length - 1].label = DM.board.DIR_JA[d]; }
       });
     });
-    return out.join('');
+    return { u: u, items: items, folded: folded };
   }
 
-  function renderLine() {
+  function boardHTML(box, b) {
+    var PAD = 6;
+    var W = box.clientWidth - PAD * 2, H = box.clientHeight - PAD * 2;
+    // 畳まずに収まる一番大きい牌にする。どうしても収まらなければ小さめにして畳む
+    var plan;
+    for (var u = 24; u >= 14; u--) {
+      plan = planBoard(b, u, W, H);
+      if (!plan.folded) break;
+    }
+    var U = plan.u;
+    return plan.items.map(function (it) {
+      if (it.kind === 'slot') {
+        return '<span class="slot" data-label="' + it.label + '" style="left:' + Math.round(it.x) + 'px;top:' +
+          Math.round(it.y) + 'px;width:' + it.w + 'px;height:' + it.h + 'px"></span>';
+      }
+      if (it.kind === 'more') {
+        return '<span class="more" style="left:' + Math.round(it.x) + 'px;top:' + Math.round(it.y) + 'px">+' + it.n + '</span>';
+      }
+      var cls = [];
+      if (it.tile.id === lastId) cls.push('last');
+      if (it.center && b.spin) cls.push('spinner');
+      if (it.end) cls.push('end');
+      return domHTML(it.top, it.bottom, it.orient, cls.join(' '),
+        (it.label ? ' data-label="' + it.label + '"' : '') +
+        ' style="--u:' + U + 'px;left:' + Math.round(it.x) + 'px;top:' + Math.round(it.y) + 'px"');
+    }).join('');
+  }
+
+  function renderBoard() {
     var box = $('#line');
-    if (!game.line.length) {
+    if (!game.board) {
       var leader = game.players[game.leader];
-      box.innerHTML = '<div class="empty">' + (game.openingDouble
-        ? esc(leader.name) + ' の 6-6 から始まります'
+      box.innerHTML = '<div class="empty">' + (game.openingTile
+        ? esc(leader.name) + ' の ' + DM.label(game.openingTile) + ' から始まります'
         : esc(leader.name) + ' から、好きな牌で始まります') + '</div>';
       return;
     }
-    box.innerHTML = layoutLine(box, game.line);
+    box.innerHTML = boardHTML(box, game.board);
   }
 
   /* --- 局情報 ---------------------------------------------------------- */
   function infobarHTML() {
     var out = '<span class="round">第' + game.handNo + '局</span>' +
       '<span class="stat"><b>' + game.target + '</b>点先取</span>' +
-      '<span class="stat">' + (game.mode === 'fives' ? 'オール5' : 'ブロック') + '</span>';
-    if (game.line.length) {
-      out += '<span class="ends">左<span class="end-num">' + game.leftEnd() + '</span>' +
-        '右<span class="end-num">' + game.rightEnd() + '</span>';
-      if (game.mode === 'fives') {
-        var s = game.endSum();
-        out += '<span class="sum' + (s % 5 === 0 ? ' hit' : '') + '">計' + s + '</span>';
-      }
-      out += '</span>';
+      '<span class="stat">山 <b>' + game.boneCount() + '</b></span>';
+    if (game.board) {
+      var s = game.endSum();
+      out += '<span class="ends">端' + game.ends().map(function (e) {
+        return '<span class="end-num">' + e.value + '</span>';
+      }).join('') + '<span class="sum' + (s > 0 && s % 5 === 0 ? ' hit' : '') + '">計' + s + '</span></span>';
     }
     return out;
   }
 
-  /* --- 他の 3 人 ------------------------------------------------------- */
+  /* --- 他の 2 人 ------------------------------------------------------- */
   function voidChip(p) {
     if (!settings.hint) return '';
     var v = DM.coach.voidText(p);
@@ -1619,6 +1865,7 @@ html, body {
       '<span class="pt">' + p.score + '</span>' +
       (p.seat === game.leader ? '<span class="lead">親</span>' : '') +
       (p.passed ? '<span class="pass-mark">パス</span>' : '') +
+      (p.drew && game.current === p.seat ? '<span class="drew">山+' + p.drew + '</span>' : '') +
       voidChip(p) +
       '</div>';
   }
@@ -1641,6 +1888,14 @@ html, body {
     return a && a.type === 'turn' && a.seat === 0 ? a.moves : null;
   }
 
+  /** 手牌は山から引いて増えるので、枚数に合わせて牌の大きさと間隔を決める */
+  function handSizing(n) {
+    var W = Math.min(global.innerWidth || 420, 430) - 16 - 14;
+    var gap = n > 9 ? 3 : n > 7 ? 5 : 8;
+    var u = Math.min(34, Math.floor((W - (n - 1) * gap) / Math.max(1, n)));
+    return '--hand-u:' + u + 'px;gap:' + gap + 'px';
+  }
+
   function selfHTML() {
     var p = game.players[0];
     var moves = myMoves();
@@ -1658,25 +1913,33 @@ html, body {
     var myTurn = game.current === 0 && game.awaiting && game.awaiting.seat === 0;
     return '<div class="self' + (myTurn ? ' active' : '') + '">' +
       headHTML(p) +
-      '<div class="self-hand" id="myhand">' + tiles + '</div>' +
+      '<div class="self-hand" id="myhand" style="' + handSizing(p.hand.length) + '">' + tiles + '</div>' +
       '</div>';
   }
 
   /* --- ヒント ---------------------------------------------------------- */
+  function endsText() {
+    var vals = [];
+    game.ends().forEach(function (e) { if (vals.indexOf(e.value) < 0) vals.push(e.value); });
+    return vals.join('・');
+  }
+
   function coachHTML() {
     var counts = DM.coach.unseenByNumber(game);
     var countLine = '<div class="count">見えていない牌の数 ' + counts.map(function (c, n) {
       return n + ':' + c;
     }).join('　') + '</div>';
     if (!advice) {
-      return (game.awaiting && game.awaiting.type === 'pass' && game.awaiting.seat === 0
-        ? '<div><b>出せる牌がありません。</b>パスすると、他の人にも「' +
-          (game.leftEnd() === game.rightEnd() ? game.leftEnd() : game.leftEnd() + '・' + game.rightEnd()) +
-          ' を持っていない」ことが伝わります。</div>'
-        : '<div>自分の番になると、おすすめの手と理由をここに出します。</div>') + countLine;
+      var a = game.awaiting, mine = a && a.seat === 0;
+      var msg = mine && a.type === 'draw'
+        ? '<div><b>出せる牌がありません。</b>山から引くと、他の人にも「' + endsText() + ' を持っていない」ことが伝わります。</div>'
+        : mine && a.type === 'pass'
+          ? '<div><b>出せる牌がなく、山もありません。</b>パスすると「' + endsText() + ' を持っていない」ことが伝わります。</div>'
+          : '<div>自分の番になると、おすすめの手と理由をここに出します。</div>';
+      return msg + countLine;
     }
     var b = advice.best;
-    var where = game.line.length ? (b.move.side === 'L' ? 'を左端へ' : 'を右端へ') : 'から始める';
+    var where = b.move.dir === 'C' ? 'から始める' : 'を' + DM.board.DIR_JA[b.move.dir] + 'へ';
     return '<div><b>おすすめ</b> ' + DM.label(b.tile) + ' ' + where + '</div>' +
       advice.reasons.map(function (r) { return '<div class="reason">' + esc(r) + '</div>'; }).join('') +
       countLine;
@@ -1691,26 +1954,37 @@ html, body {
   }
 
   /* --- コマンド -------------------------------------------------------- */
+  var DIR_ARROW = { W: '◀', E: '▶', N: '▲', S: '▼' };
+
   function actionsHTML() {
     var a = game.awaiting;
     if (game.result || game.gameOver) return '<span class="hint">&nbsp;</span>';
     if (!a) {
       var p = game.players[game.current];
-      return '<span class="hint">' + (p ? esc(p.name) + ' 思考中…' : '') + '</span>';
+      return '<span class="hint">' + (p ? esc(p.name) + (p.drew ? ' 山から引いています…' : ' 思考中…') : '') + '</span>';
+    }
+    if (a.type === 'draw') {
+      return '<span class="hint">出せる牌がありません</span>' +
+        '<button class="btn primary" data-act="draw">山から引く（残り ' + game.boneCount() + '）</button>';
     }
     if (a.type === 'pass') {
-      return '<span class="hint">出せる牌がありません</span>' +
+      return '<span class="hint">出せる牌がなく、山もありません</span>' +
         '<button class="btn primary" data-act="pass">パス</button>';
     }
     if (selected >= 0) {
       var t = game.players[0].hand[selected];
-      var recSide = settings.hint && advice && advice.best.move.index === selected ? advice.best.move.side : null;
-      return '<span class="hint">' + DM.label(t) + ' を</span>' +
-        '<button class="btn' + (recSide === 'L' ? ' rec' : '') + '" data-act="side-L">◀ 左端 ' + game.leftEnd() + ' へ</button>' +
-        '<button class="btn' + (recSide === 'R' ? ' rec' : '') + '" data-act="side-R">右端 ' + game.rightEnd() + ' へ ▶</button>' +
+      var recDir = settings.hint && advice && advice.best.move.index === selected ? advice.best.move.dir : null;
+      var ends = DM.board.openEnds(game.board);
+      var btns = a.moves.filter(function (m) { return m.index === selected; }).map(function (m) {
+        var v = ends.filter(function (e) { return e.dir === m.dir; })[0].value;
+        var pts = game.scoreOf(t, m.dir);
+        return '<button class="btn' + (recDir === m.dir ? ' rec' : '') + '" data-act="end" data-dir="' + m.dir + '">' +
+          DIR_ARROW[m.dir] + ' ' + DM.board.DIR_JA[m.dir] + ' ' + v + (pts ? '（' + pts + '点）' : '') + '</button>';
+      }).join('');
+      return '<span class="hint">' + DM.label(t) + ' を</span>' + btns +
         '<button class="btn" data-act="unselect">やめる</button>';
     }
-    return '<span class="hint">' + (game.line.length ? '牌を押して場につなぐ' : '牌を押して最初の 1 枚を出す') + '</span>';
+    return '<span class="hint">' + (game.board ? '牌を押して場につなぐ' : '牌を押して最初の 1 枚を出す') + '</span>';
   }
 
   /* --- 描画 ------------------------------------------------------------ */
@@ -1718,9 +1992,9 @@ html, body {
     if (!game) return;
     updateAdvice();
     $('#infobar').innerHTML = infobarHTML();
-    // 手番は 自分 → 下家 → 対面 → 上家 → 自分 と回るので、上から 下家 / 対面 / 上家 の順に並べる
-    $('#board').innerHTML = [1, 2, 3].map(function (i) { return seatHTML(game.players[i]); }).join('');
-    renderLine();
+    // 手番は 自分 → 下家 → 上家 → 自分 と回るので、上から 下家 / 上家 の順に並べる
+    $('#board').innerHTML = [1, 2].map(function (i) { return seatHTML(game.players[i]); }).join('');
+    renderBoard();
     var coach = $('#coach');
     coach.hidden = !settings.hint;
     if (settings.hint) coach.innerHTML = coachHTML();
@@ -1811,7 +2085,7 @@ html, body {
     if (!mine.length) return;
     if (mine.length === 1) {
       selected = -1;
-      game.playerPlay(index, mine[0].side);
+      game.playerPlay(index, mine[0].dir);
       return;
     }
     selected = selected === index ? -1 : index;
@@ -1847,7 +2121,6 @@ html, body {
   function labelButtons() {
     $('[data-act="difficulty"]').textContent = '敵:' + DM.ai.LEVELS[settings.difficulty].name;
     $('[data-act="speed"]').textContent = '速度:' + SPEED_LABELS[Math.max(0, SPEEDS.indexOf(settings.speed))];
-    $('[data-act="mode"]').textContent = settings.mode === 'fives' ? 'オール5' : 'ブロック';
     $('[data-act="hint"]').classList.toggle('on', settings.hint);
   }
 
@@ -1857,11 +2130,11 @@ html, body {
     switch (btn.getAttribute('data-act')) {
       case 'title': handleTitleTap(); break;
       case 'pass': game.playerPass(); break;
-      case 'side-L':
-      case 'side-R':
+      case 'draw': game.playerDraw(); break;
+      case 'end':
         var i = selected;
         selected = -1;
-        game.playerPlay(i, btn.getAttribute('data-act') === 'side-L' ? 'L' : 'R');
+        game.playerPlay(i, btn.getAttribute('data-dir'));
         break;
       case 'unselect': selected = -1; render(); break;
       case 'next': $('#overlay').hidden = true; game.nextHand(); break;
@@ -1877,7 +2150,7 @@ html, body {
         var oi = parseInt(btn.getAttribute('data-i'), 10);
         var at = pickOpps.indexOf(oi);
         if (at >= 0) pickOpps.splice(at, 1);
-        else if (pickOpps.length < 3) pickOpps.push(oi);
+        else if (pickOpps.length < OPP_SEATS.length) pickOpps.push(oi);
         renderPicker();
         break;
       case 'pick-random': pickOpps = []; renderPicker(); break;
@@ -1910,15 +2183,6 @@ html, body {
         game.speed = settings.speed;
         saveSettings(); labelButtons();
         break;
-      case 'mode':
-        var next = settings.mode === 'fives' ? 'block' : 'fives';
-        var started = game && (game.handNo > 1 || game.line.length > 0);
-        if (started && !global.confirm('得点方式を「' + (next === 'fives' ? 'オールファイブ' : 'ブロック') +
-          '」に変えて、最初からやり直しますか？')) break;
-        settings.mode = next;
-        saveSettings(); labelButtons();
-        startGame();
-        break;
     }
   }
 
@@ -1939,11 +2203,11 @@ html, body {
         (k >= 0 ? '<span class="order">' + OPP_SEATS[k] + '</span>' : '') +
         '<span class="pn">' + esc(c.name) + '</span><span class="pt2">' + c.tag + '</span></button>';
     }).join('');
-    var rest = 3 - pickOpps.length;
+    var rest = OPP_SEATS.length - pickOpps.length;
     return '<h2>顔ぶれを選ぶ</h2>' +
       '<div class="sub">あなたのキャラ（勝ったときに顔とひとことが出ます）</div>' +
       '<div class="pick-grid">' + meCells + '</div>' +
-      '<div class="sub">対戦相手（選んだ順に 下家・対面・上家。' +
+      '<div class="sub">対戦相手（選んだ順に 下家・上家。' +
       (rest > 0 ? 'あと ' + rest + ' 人は' : '') + 'おまかせ）</div>' +
       '<div class="pick-grid">' + oppCells + '</div>' +
       '<div class="pick-actions">' +
@@ -1969,12 +2233,10 @@ html, body {
       onEvent: onEvent,
       speed: settings.speed,
       difficulty: settings.difficulty,
-      mode: settings.mode,
       me: settings.me,
       opps: settings.opps
     });
-    logLines.push({ text: '--- 新しい対戦（' + (settings.mode === 'fives' ? 'オールファイブ' : 'ブロック') +
-      '・' + game.target + '点先取）---', hl: true });
+    logLines.push({ text: '--- 新しい対戦（オールファイブ・' + game.target + '点先取）---', hl: true });
     renderLog();
     game.startGame();
   }
@@ -1997,7 +2259,7 @@ html, body {
     renderCharList();
     document.addEventListener('click', handleAction);
     $('#self').addEventListener('click', handleHandClick);
-    global.addEventListener('resize', function () { if (game) renderLine(); });
+    global.addEventListener('resize', function () { if (game) render(); });
     if (/#open\b/.test(location.hash)) setOpenMode(true);
     startGame();
   }

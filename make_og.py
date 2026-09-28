@@ -19,7 +19,7 @@ W, H = 1200, 630
 S = dict(
     name='Line on DOMINO', assets='assets',
     head=['パスは、', '嘘をつかない。'],
-    tag='登録もダウンロードも要らない4人ドミノ。CPUは覗き見しない。',
+    tag='登録もダウンロードも要らない3人ドミノ。CPUは覗き見しない。',
     url='pikaring.github.io/line-on-domino',
     paper=(250, 247, 242), ink=(42, 33, 27), muted=(141, 130, 121), accent=(178, 122, 38), glow=(241, 228, 207))
 

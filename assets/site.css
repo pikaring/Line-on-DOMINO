@@ -127,7 +127,7 @@ h1 { font-size: clamp(36px, 4.6vw, 58px); font-weight: 750; margin: 22px 0 20px;
 .seat .vd { background: #e2564a38; border-radius: 99px; padding: 0 5px; font-size: 8px; }
 .seat .bk { margin-left: auto; display: flex; gap: 1.5px; }
 .seat .bk i { width: 7px; height: 14px; border-radius: 1.5px; background: linear-gradient(150deg, #9c3a3f, #7a1f24 60%, #5a161a); }
-.line { position: relative; height: 104px; background: #0000002e; border-radius: 6px; margin-bottom: 5px; }
+.line { position: relative; height: 136px; background: #0000002e; border-radius: 6px; margin-bottom: 5px; }
 .coach { background: #f2c14e1a; border: 1px solid #f2c14e73; border-radius: 6px; padding: 4px 7px; font-size: 8.5px; line-height: 1.45; margin-bottom: 5px; }
 .coach b { color: #f2c14e; }
 .hand { display: flex; justify-content: center; gap: 6px; background: #00000030; border-radius: 6px; padding: 8px 0 6px; }
@@ -152,6 +152,9 @@ h1 { font-size: clamp(36px, 4.6vw, 58px); font-weight: 750; margin: 22px 0 20px;
 .d .n1 { color: #1c7c8c; } .d .n2 { color: #2f7d32; } .d .n3 { color: #c0392b; }
 .d .n4 { color: #6d4c2f; } .d .n5 { color: #1f5fae; } .d .n6 { color: #7b3fa0; }
 .d.end { outline: 1.5px solid #f2c14e; }
+.d[data-label]::after, .line .slot::after { content: attr(data-label); position: absolute; top: -3px; left: -3px; font-size: 7px; line-height: 1; padding: 1px 2px; border-radius: 2px; background: #f2c14e; color: #221a14; font-weight: 700; font-style: normal; }
+.line .slot { position: absolute; border: 1px dashed #f2c14eb3; border-radius: 3px; }
+.d.sp { box-shadow: 0 0 0 1.5px #f2c14e59; }
 .d.rec { box-shadow: 0 0 0 2px #f2c14e; }
 .d.dim { opacity: .45; }
 .hand .d { --u: 21px; }
