@@ -465,6 +465,13 @@
       case 'difficulty':
         settings.difficulty = (settings.difficulty + 1) % DM.ai.LEVELS.length;
         game.difficulty = settings.difficulty;
+        // やさしいにしたらヒントも出す（あとから「ヒント」で消すこともできる）
+        if (settings.difficulty === 0 && !settings.hint) {
+          settings.hint = true;
+          logLines.push({ text: 'やさしいでは、ヒント（おすすめの手と理由）を表示します', hl: true });
+          renderLog();
+          render();
+        }
         saveSettings(); labelButtons();
         break;
       case 'speed':
