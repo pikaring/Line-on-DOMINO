@@ -31,6 +31,9 @@
     this.target = opts.target || TARGETS[this.mode];
     // CPU の強さ 0=やさしい / 1=ふつう / 2=つよい
     this.difficulty = opts.difficulty == null ? 1 : opts.difficulty;
+    // 顔ぶれ: me = あなたのキャラ（null なら名なしの「あなた」）、
+    // opps = 下家・対面・上家に座らせるキャラ（null の席はおまかせ）
+    this.cast = { me: opts.me == null ? null : opts.me, opps: opts.opps || [] };
     this.players = [0, 1, 2, 3].map(function (i) {
       return {
         seat: i,
@@ -76,18 +79,37 @@
     this.startHand();
   };
 
-  /** CPU の打ち筋（登場人物）を 6 人から 3 人、重複なく抽選する */
+  /**
+   * 顔ぶれを決める。あなたのキャラと、席ごとに指定された対戦相手をまず座らせ、
+   * 空いた席には残りの 6 人から重複なくランダムに座らせる。
+   */
   Game.prototype.assignCharacters = function () {
-    var pool = DM.ai.CHARACTERS.map(function (_, i) { return i; });
-    DM.shuffle(pool, this.rng);
-    var k = 0;
+    var N = DM.ai.CHARACTERS.length;
+    var valid = function (c) { return c != null && c >= 0 && c < N; };
+    var used = {};
+    var me = this.players[0];
+    me.character = valid(this.cast.me) ? this.cast.me : null;
+    me.name = me.character != null ? DM.ai.CHARACTERS[me.character].name : 'あなた';
+    if (me.character != null) used[me.character] = true;
+
+    var fixed = {};
     this.players.forEach(function (p) {
-      if (!p.isAI) { p.character = null; return; }
-      p.character = pool[k++];
+      if (!p.isAI) return;
+      var c = this.cast.opps[p.seat - 1];
+      if (valid(c) && !used[c]) { fixed[p.seat] = c; used[c] = true; }
+    }, this);
+
+    var pool = [];
+    for (var i = 0; i < N; i++) if (!used[i]) pool.push(i);
+    DM.shuffle(pool, this.rng);
+    this.players.forEach(function (p) {
+      if (!p.isAI) return;
+      p.character = fixed[p.seat] != null ? fixed[p.seat] : pool.shift();
       p.name = DM.ai.CHARACTERS[p.character].name;
     });
     this.log('対戦相手: ' + this.players.filter(function (p) { return p.isAI; })
-      .map(function (p) { return p.seatLabel + ' ' + p.name; }).join(' / '));
+      .map(function (p) { return p.seatLabel + ' ' + p.name; }).join(' / ') +
+      (me.character != null ? '（あなたは ' + me.name + '）' : ''));
   };
 
   Game.prototype.startHand = function () {

@@ -419,6 +419,34 @@ html, body {
 .speech.lose .face.big { border-color: rgba(255, 240, 220, .35); }
 .rest-list .who { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 
+/* 顔ぶれを選ぶ */
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; margin: 4px 0 12px; }
+.pick {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 2px 5px;
+  color: var(--text); font-family: inherit;
+  cursor: pointer;
+}
+.pick.on { border-color: var(--accent); background: rgba(242, 193, 78, .16); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pick.off { opacity: .3; cursor: default; }
+.pick .pn { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.pick .pt2 { font-size: 9.5px; opacity: .7; }
+.pick .noface {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .12); font-size: 18px; font-weight: 700; opacity: .7;
+}
+.pick .order {
+  position: absolute; top: 2px; right: 2px;
+  background: var(--accent); color: #2b2205;
+  border-radius: 4px; padding: 0 3px; font-size: 9.5px; font-weight: 700;
+}
+.pick-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+
 /* ルール画面のキャラクター一覧 */
 .char { margin: 9px 0; display: flex; gap: 9px; align-items: center; }
 .char-top { display: flex; align-items: center; gap: 6px; font-size: 14px; }
@@ -494,7 +522,7 @@ html, body {
       ・誰かが目標点に届いたら、その局の精算で対戦終了。一番点の高い人が勝ちです。
       <div class="divider"></div>
       <b>対戦相手</b><br>
-      猫街三部作の 6 人から 3 人が毎回ランダムで選ばれます。打ち筋はひとりずつ違います。
+      猫街三部作の 6 人から 3 人が卓に着きます。打ち筋はひとりずつ違います。「新規」で、あなたのキャラと対戦相手を選べます（選ばなかった席はおまかせ）。
       <div id="char-list"></div>
       <div class="divider"></div>
       <b>操作</b><br>
@@ -964,6 +992,9 @@ html, body {
     this.target = opts.target || TARGETS[this.mode];
     // CPU の強さ 0=やさしい / 1=ふつう / 2=つよい
     this.difficulty = opts.difficulty == null ? 1 : opts.difficulty;
+    // 顔ぶれ: me = あなたのキャラ（null なら名なしの「あなた」）、
+    // opps = 下家・対面・上家に座らせるキャラ（null の席はおまかせ）
+    this.cast = { me: opts.me == null ? null : opts.me, opps: opts.opps || [] };
     this.players = [0, 1, 2, 3].map(function (i) {
       return {
         seat: i,
@@ -1009,18 +1040,37 @@ html, body {
     this.startHand();
   };
 
-  /** CPU の打ち筋（登場人物）を 6 人から 3 人、重複なく抽選する */
+  /**
+   * 顔ぶれを決める。あなたのキャラと、席ごとに指定された対戦相手をまず座らせ、
+   * 空いた席には残りの 6 人から重複なくランダムに座らせる。
+   */
   Game.prototype.assignCharacters = function () {
-    var pool = DM.ai.CHARACTERS.map(function (_, i) { return i; });
-    DM.shuffle(pool, this.rng);
-    var k = 0;
+    var N = DM.ai.CHARACTERS.length;
+    var valid = function (c) { return c != null && c >= 0 && c < N; };
+    var used = {};
+    var me = this.players[0];
+    me.character = valid(this.cast.me) ? this.cast.me : null;
+    me.name = me.character != null ? DM.ai.CHARACTERS[me.character].name : 'あなた';
+    if (me.character != null) used[me.character] = true;
+
+    var fixed = {};
     this.players.forEach(function (p) {
-      if (!p.isAI) { p.character = null; return; }
-      p.character = pool[k++];
+      if (!p.isAI) return;
+      var c = this.cast.opps[p.seat - 1];
+      if (valid(c) && !used[c]) { fixed[p.seat] = c; used[c] = true; }
+    }, this);
+
+    var pool = [];
+    for (var i = 0; i < N; i++) if (!used[i]) pool.push(i);
+    DM.shuffle(pool, this.rng);
+    this.players.forEach(function (p) {
+      if (!p.isAI) return;
+      p.character = fixed[p.seat] != null ? fixed[p.seat] : pool.shift();
       p.name = DM.ai.CHARACTERS[p.character].name;
     });
     this.log('対戦相手: ' + this.players.filter(function (p) { return p.isAI; })
-      .map(function (p) { return p.seatLabel + ' ' + p.name; }).join(' / '));
+      .map(function (p) { return p.seatLabel + ' ' + p.name; }).join(' / ') +
+      (me.character != null ? '（あなたは ' + me.name + '）' : ''));
   };
 
   Game.prototype.startHand = function () {
@@ -1388,7 +1438,9 @@ html, body {
   var PIPS = [[], [4], [2, 6], [2, 4, 6], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
 
   var game = null;
-  var settings = { difficulty: 1, speed: 650, mode: 'block', hint: false };
+  var settings = { difficulty: 1, speed: 650, mode: 'block', hint: false, me: null, opps: [] };
+  var OPP_SEATS = ['下家', '対面', '上家'];
+  var pickMe = null, pickOpps = [];   // 顔ぶれ選びの途中の状態
   var selected = -1;       // 両端に出せる牌を選んで、左右を選んでいる途中
   var lastId = null;       // 直前に場に出た牌
   var advice = null;       // ヒントの結果（手番ごとに 1 回だけ計算する）
@@ -1556,7 +1608,7 @@ html, body {
     return '<div class="seat-head">' + faceHTML(ch, 'normal') +
       (p.seatLabel ? '<span class="seat-label">' + p.seatLabel + '</span>' : '') +
       '<span class="nm">' + esc(p.name) + '</span>' +
-      (ch ? '<span class="tag">' + ch.tag + '</span>' : '') +
+      (ch ? '<span class="tag">' + (p.seat === 0 ? 'あなた' : ch.tag) + '</span>' : '') +
       '<span class="pt">' + p.score + '</span>' +
       (p.seat === game.leader ? '<span class="lead">親</span>' : '') +
       (p.passed ? '<span class="pass-mark">パス</span>' : '') +
@@ -1806,7 +1858,28 @@ html, body {
       case 'unselect': selected = -1; render(); break;
       case 'next': $('#overlay').hidden = true; game.nextHand(); break;
       case 'restart': $('#overlay').hidden = true; startGame(); break;
-      case 'new-game': startGame(); break;
+      case 'new-game': openPicker(); break;
+      case 'pick-me':
+        var mi = parseInt(btn.getAttribute('data-i'), 10);
+        pickMe = mi < 0 ? null : mi;
+        pickOpps = pickOpps.filter(function (c) { return c !== pickMe; });
+        renderPicker();
+        break;
+      case 'pick-opp':
+        var oi = parseInt(btn.getAttribute('data-i'), 10);
+        var at = pickOpps.indexOf(oi);
+        if (at >= 0) pickOpps.splice(at, 1);
+        else if (pickOpps.length < 3) pickOpps.push(oi);
+        renderPicker();
+        break;
+      case 'pick-random': pickOpps = []; renderPicker(); break;
+      case 'pick-cancel': $('#overlay').hidden = true; break;
+      case 'pick-start':
+        settings.me = pickMe;
+        settings.opps = pickOpps.slice();
+        saveSettings();
+        startGame();
+        break;
       case 'hint':
         settings.hint = !settings.hint;
         saveSettings(); labelButtons(); render();
@@ -1834,6 +1907,45 @@ html, body {
     }
   }
 
+  /* --- 顔ぶれを選ぶ -------------------------------------------------- */
+  function pickerHTML() {
+    var C = DM.ai.CHARACTERS;
+    var meCells = '<button class="pick' + (pickMe == null ? ' on' : '') + '" data-act="pick-me" data-i="-1">' +
+      '<span class="noface">？</span><span class="pn">名なし</span></button>' +
+      C.map(function (c, i) {
+        return '<button class="pick' + (pickMe === i ? ' on' : '') + '" data-act="pick-me" data-i="' + i + '">' +
+          faceHTML(c, 'normal', 'mid') + '<span class="pn">' + esc(c.name) + '</span></button>';
+      }).join('');
+    var oppCells = C.map(function (c, i) {
+      var k = pickOpps.indexOf(i);
+      var mine = pickMe === i;
+      return '<button class="pick' + (k >= 0 ? ' on' : '') + (mine ? ' off' : '') + '" data-act="pick-opp" data-i="' + i + '"' +
+        (mine ? ' disabled' : '') + '>' + faceHTML(c, 'normal', 'mid') +
+        (k >= 0 ? '<span class="order">' + OPP_SEATS[k] + '</span>' : '') +
+        '<span class="pn">' + esc(c.name) + '</span><span class="pt2">' + c.tag + '</span></button>';
+    }).join('');
+    var rest = 3 - pickOpps.length;
+    return '<h2>顔ぶれを選ぶ</h2>' +
+      '<div class="sub">あなたのキャラ（勝ったときに顔とひとことが出ます）</div>' +
+      '<div class="pick-grid">' + meCells + '</div>' +
+      '<div class="sub">対戦相手（選んだ順に 下家・対面・上家。' +
+      (rest > 0 ? 'あと ' + rest + ' 人は' : '') + 'おまかせ）</div>' +
+      '<div class="pick-grid">' + oppCells + '</div>' +
+      '<div class="pick-actions">' +
+      '<button class="btn" data-act="pick-random">相手をおまかせに戻す</button>' +
+      (game ? '<button class="btn" data-act="pick-cancel">やめる</button>' : '') +
+      '<button class="btn primary" data-act="pick-start">この顔ぶれで始める</button></div>';
+  }
+
+  function openPicker() {
+    pickMe = settings.me;
+    pickOpps = (settings.opps || []).filter(function (c) { return c != null && c !== pickMe; }).slice(0, 3);
+    $('#sheet').innerHTML = pickerHTML();
+    $('#overlay').hidden = false;
+  }
+
+  function renderPicker() { $('#sheet').innerHTML = pickerHTML(); }
+
   function startGame() {
     if (game) game.stop();
     selected = -1; lastId = null; advice = null; adviceFor = null;
@@ -1842,7 +1954,9 @@ html, body {
       onEvent: onEvent,
       speed: settings.speed,
       difficulty: settings.difficulty,
-      mode: settings.mode
+      mode: settings.mode,
+      me: settings.me,
+      opps: settings.opps
     });
     logLines.push({ text: '--- 新しい対戦（' + (settings.mode === 'fives' ? 'オールファイブ' : 'ブロック') +
       '・' + game.target + '点先取）---', hl: true });
@@ -1863,6 +1977,7 @@ html, body {
     loadSettings();
     if (SPEEDS.indexOf(settings.speed) < 0) settings.speed = 650;
     settings.difficulty = Math.max(0, Math.min(DM.ai.LEVELS.length - 1, settings.difficulty | 0));
+    if (!Array.isArray(settings.opps)) settings.opps = [];
     labelButtons();
     renderCharList();
     document.addEventListener('click', handleAction);
