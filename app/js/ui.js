@@ -300,10 +300,11 @@
 
   function renderLog() {
     var el = $('#log');
-    el.innerHTML = logLines.slice(-60).map(function (l) {
+    // 新しい行を上に出す（最下段に置いているので、古い行ほど画面の下に隠れていく）
+    el.innerHTML = logLines.slice(-60).reverse().map(function (l) {
       return '<div class="' + (l.hl ? 'hl' : '') + '">' + esc(l.text) + '</div>';
     }).join('');
-    el.scrollTop = el.scrollHeight;
+    el.scrollTop = 0;
   }
 
   /* --- 結果 ------------------------------------------------------------ */

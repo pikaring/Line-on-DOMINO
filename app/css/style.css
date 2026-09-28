@@ -6,7 +6,10 @@
  * 牌の寸法から決めている。場の並びは箱の大きさを固定し、その中で JS が牌の寸法を決める。
  *
  *   上から  操作ボタン / 局情報 / 他の 3 人（1 人 1 段）/ 場 / ヒント /
- *           ログ（余白を吸収）/ 自分の手牌 / コマンド（最下段に固定）
+ *           自分の手牌 / コマンド / ログ（余白を吸収。新しい行が上）
+ *
+ * ログを最下段に置くのは、iPhone の Safari で画面下のツールバーが盤面に重なっても、
+ * 隠れるのが古いログだけで済むようにするため。
  */
 
 :root {
@@ -53,11 +56,14 @@ html, body {
   height: 100dvh;
   margin: 0 auto;
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-  display: grid;
-  grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto auto;
+  /* ヒント欄は出たり消えたりするので、行の数に左右されない縦並び（flex）にする */
+  display: flex;
+  flex-direction: column;
   gap: 5px;
   overflow: hidden;
 }
+#app > * { flex: none; }
+#app > .log { flex: 1 1 0; }
 
 /* ---- 上部の操作ボタン ---- */
 .topbar {
@@ -228,13 +234,14 @@ html, body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: flex-start;
   scrollbar-width: none;
   text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
 }
 .log::-webkit-scrollbar { display: none; }
 .log div { opacity: .8; flex: none; }
 .log div.hl { color: var(--accent); }
+.log div:first-child { opacity: 1; }
 
 /* ---- 自分 ---- */
 .self {
